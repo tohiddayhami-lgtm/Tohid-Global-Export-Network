@@ -16,6 +16,10 @@ import defaultNetworkJson from './default-network.json';
 const STORAGE_KEY = 'gen_export_network_v1';
 const SESSION_KEY = 'gen_export_admin_session';
 
+/** Used only when `VITE_ADMIN_*` are not set in `.env`. Override in production. */
+const FALLBACK_ADMIN_USERNAME = 'tgen_export_operator';
+const FALLBACK_ADMIN_PASSWORD = 'Tg7!kM9pL2@vN4#xQ8wR3hJ6zC1fB5dS0eA';
+
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
@@ -81,8 +85,8 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
   const exportData = useMemo(() => hydrateNetwork(networkJson), [networkJson]);
 
   const login = useCallback((user: string, pass: string) => {
-    const u = import.meta.env.VITE_ADMIN_USERNAME ?? 'admin';
-    const p = import.meta.env.VITE_ADMIN_PASSWORD ?? 'admin';
+    const u = import.meta.env.VITE_ADMIN_USERNAME ?? FALLBACK_ADMIN_USERNAME;
+    const p = import.meta.env.VITE_ADMIN_PASSWORD ?? FALLBACK_ADMIN_PASSWORD;
     if (user === u && pass === p) {
       sessionStorage.setItem(SESSION_KEY, '1');
       setAdminOk(true);

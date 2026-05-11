@@ -270,11 +270,6 @@ export default function AdminPanel() {
               Sign in
             </button>
           </form>
-          <p className="text-[11px] text-ink-faint mt-4 leading-relaxed">
-            Default: <code className="text-ink-soft">admin</code> / <code className="text-ink-soft">admin</code>.
-            Override with <code className="text-ink-soft">VITE_ADMIN_USERNAME</code> and{' '}
-            <code className="text-ink-soft">VITE_ADMIN_PASSWORD</code> in <code>.env</code>.
-          </p>
           <Link to="/" className="mt-6 block text-center text-sm text-ink-soft hover:text-ink">
             ← Back to map
           </Link>
