@@ -1,9 +1,24 @@
 import { useCallback, useMemo, useState, type ChangeEventHandler, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { LogOut, Plus, Save, Trash2, Upload, Download, RotateCcw } from 'lucide-react';
+import { LogOut, Plus, Save, Trash2, Upload, Download, RotateCcw, ExternalLink } from 'lucide-react';
 import type { CategoryJson, CompanyJson, CountryJson } from './networkTypes.ts';
 import { ICON_KEYS } from './iconRegistry.ts';
 import { defaultNetworkClone, useExportData, validateNetwork } from './networkContext.tsx';
+
+function openCompanyUrlInNewTab(raw: string) {
+  const t = raw.trim();
+  if (!t) return;
+  let href = t;
+  if (!/^https?:\/\//i.test(href)) {
+    href = `https://${href}`;
+  }
+  try {
+    const u = new URL(href);
+    window.open(u.href, '_blank', 'noopener,noreferrer');
+  } catch {
+    window.alert('آدرس معتبر نیست.');
+  }
+}
 
 function slugify(s: string) {
   return s
@@ -474,13 +489,16 @@ export default function AdminPanel() {
                     </button>
                   </div>
                   <div className="overflow-x-auto border border-border rounded-lg">
-                    <table className="w-full text-sm min-w-[640px]">
+                    <table className="w-full text-sm min-w-[720px]">
                       <thead className="bg-hover text-left text-xs text-ink-soft">
                         <tr>
                           <th className="p-2">Name</th>
                           <th className="p-2">Tag</th>
                           <th className="p-2 w-12">Init</th>
                           <th className="p-2">URL</th>
+                          <th className="p-2 w-24 text-center" title="باز کردن در تب جدید">
+                            Open
+                          </th>
                           <th className="p-2 w-10" />
                         </tr>
                       </thead>
@@ -514,7 +532,20 @@ export default function AdminPanel() {
                                 className="w-full rounded border border-transparent hover:border-border px-1 py-1"
                                 value={row.url}
                                 onChange={(e) => updateCompany(selCat, i, { url: e.target.value })}
+                                placeholder="https://..."
                               />
+                            </td>
+                            <td className="p-1 text-center">
+                              <button
+                                type="button"
+                                disabled={!row.url.trim()}
+                                title="لینک در پنجره / تب جدید"
+                                aria-label="Open company URL in new tab"
+                                onClick={() => openCompanyUrlInNewTab(row.url)}
+                                className="inline-flex items-center justify-center rounded-lg border border-border p-2 text-ink hover:bg-hover disabled:opacity-40 disabled:pointer-events-none"
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </button>
                             </td>
                             <td className="p-1">
                               <button
