@@ -48,7 +48,7 @@ function emptyCountry(id: string): CountryJson {
 }
 
 export default function AdminPanel() {
-  const { adminOk, login, logout, networkJson, setNetworkJson } = useExportData();
+  const { adminOk, login, logout, networkJson, setNetworkJson, syncMode, remoteReady } = useExportData();
   const [user, setUser] = useState('');
   const [pass, setPass] = useState('');
   const [err, setErr] = useState('');
@@ -59,10 +59,11 @@ export default function AdminPanel() {
   const country = selCountry ? networkJson[selCountry] : undefined;
   const catKeys = useMemo(() => (country ? Object.keys(country.categories) : []), [country]);
 
-  const onLogin = (e: FormEvent) => {
+  const onLogin = async (e: FormEvent) => {
     e.preventDefault();
     setErr('');
-    if (!login(user, pass)) setErr('Invalid username or password.');
+    const ok = await login(user, pass);
+    if (!ok) setErr(syncMode === 'firebase' ? 'ایمیل یا رمز Firebase نامعتبر است.' : 'Invalid username or password.');
   };
 
   const updateCountry = useCallback(
@@ -241,15 +242,22 @@ export default function AdminPanel() {
       <div className="min-h-screen bg-bg flex flex-col items-center justify-center p-6">
         <div className="w-full max-w-sm rounded-2xl border border-border bg-white p-8 shadow-sm">
           <h1 className="font-serif text-2xl text-ink mb-1">Admin</h1>
-          <p className="text-sm text-ink-soft mb-6">Sign in to edit the export network map.</p>
+          <p className="text-sm text-ink-soft mb-6">
+            {syncMode === 'firebase'
+              ? 'با حساب ادمین Firebase وارد شوید؛ تغییرات برای همهٔ بازدیدکنندگان آنلاین اعمال می‌شود.'
+              : 'Sign in to edit the export network map.'}
+          </p>
           <form onSubmit={onLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-ink-soft mb-1">Username</label>
+              <label className="block text-xs font-medium text-ink-soft mb-1">
+                {syncMode === 'firebase' ? 'ایمیل (Firebase)' : 'Username'}
+              </label>
               <input
                 className="w-full rounded-lg border border-border px-3 py-2 text-sm"
                 value={user}
                 onChange={(e) => setUser(e.target.value)}
                 autoComplete="username"
+                type={syncMode === 'firebase' ? 'email' : 'text'}
               />
             </div>
             <div>
@@ -285,7 +293,13 @@ export default function AdminPanel() {
       <header className="sticky top-0 z-10 border-b border-border bg-white/90 backdrop-blur px-4 py-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           <h1 className="font-serif text-lg">Export network — Admin</h1>
-          <span className="text-xs text-ink-soft">Saved in this browser</span>
+          <span className="text-xs text-ink-soft">
+            {syncMode === 'firebase'
+              ? remoteReady
+                ? 'همگام‌سازی ابری فعال — تغییرات برای همه اعمال می‌شود'
+                : 'در حال اتصال به سرور…'
+              : 'فقط در این مرورگر ذخیره می‌شود'}
+          </span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <label className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium cursor-pointer hover:bg-hover">

@@ -4,17 +4,25 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type Dispatch,
   type ReactNode,
   type SetStateAction,
 } from 'react';
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
+import { doc, getFirestore, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
 import type { ExportNetworkJson } from './networkTypes.ts';
 import { hydrateNetwork, type ExportDataMap } from './hydrateNetwork.ts';
 import defaultNetworkJson from './default-network.json';
+import { firebaseApp } from './firebase.ts';
 
 const STORAGE_KEY = 'gen_export_network_v1';
 const SESSION_KEY = 'gen_export_admin_session';
+
+const FIRESTORE_COLLECTION = 'config';
+const FIRESTORE_DOC_ID = 'export_network';
+const CLOUD_SAVE_DEBOUNCE_MS = 1500;
 
 /** Used only when `VITE_ADMIN_*` are not set in `.env`. Override in production. */
 const FALLBACK_ADMIN_USERNAME = 'tgen_export_operator';
@@ -57,22 +65,75 @@ function loadFromStorage(): ExportNetworkJson {
   return structuredClone(defaultNetworkJson as ExportNetworkJson);
 }
 
+type SyncMode = 'local' | 'firebase';
+
 type Ctx = {
   exportData: ExportDataMap;
   networkJson: ExportNetworkJson;
   setNetworkJson: Dispatch<SetStateAction<ExportNetworkJson>>;
   adminOk: boolean;
-  login: (user: string, pass: string) => boolean;
+  login: (user: string, pass: string) => Promise<boolean>;
   logout: () => void;
+  syncMode: SyncMode;
+  remoteReady: boolean;
 };
 
 const ExportDataContext = createContext<Ctx | null>(null);
 
 export function ExportDataProvider({ children }: { children: ReactNode }) {
+  const syncMode: SyncMode = firebaseApp ? 'firebase' : 'local';
   const [networkJson, setNetworkJson] = useState<ExportNetworkJson>(loadFromStorage);
-  const [adminOk, setAdminOk] = useState(
+  const networkJsonRef = useRef(networkJson);
+  useEffect(() => {
+    networkJsonRef.current = networkJson;
+  }, [networkJson]);
+
+  const [legacyAdminOk, setLegacyAdminOk] = useState(
     () => typeof sessionStorage !== 'undefined' && sessionStorage.getItem(SESSION_KEY) === '1'
   );
+  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [remoteReady, setRemoteReady] = useState(() => !firebaseApp);
+
+  const adminOk = syncMode === 'firebase' ? !!firebaseUser : legacyAdminOk;
+
+  useEffect(() => {
+    if (!firebaseApp) return;
+    const auth = getAuth(firebaseApp);
+    return onAuthStateChanged(auth, setFirebaseUser);
+  }, []);
+
+  useEffect(() => {
+    if (!firebaseApp) return;
+    const db = getFirestore(firebaseApp);
+    const ref = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
+    const unsub = onSnapshot(
+      ref,
+      (snap) => {
+        if (snap.exists()) {
+          const payload = snap.data()?.payload;
+          if (typeof payload === 'string') {
+            try {
+              const parsed: unknown = JSON.parse(payload);
+              if (validateNetwork(parsed)) {
+                const incoming = JSON.stringify(parsed);
+                const current = JSON.stringify(networkJsonRef.current);
+                if (incoming !== current) {
+                  setNetworkJson(parsed);
+                }
+              }
+            } catch {
+              /* ignore */
+            }
+          }
+        }
+        setRemoteReady(true);
+      },
+      () => {
+        setRemoteReady(true);
+      }
+    );
+    return unsub;
+  }, []);
 
   useEffect(() => {
     try {
@@ -82,27 +143,59 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
     }
   }, [networkJson]);
 
+  useEffect(() => {
+    if (!firebaseApp || !firebaseUser || !remoteReady) return;
+    const db = getFirestore(firebaseApp);
+    const ref = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
+    const jsonStr = JSON.stringify(networkJson);
+    const t = window.setTimeout(() => {
+      void setDoc(ref, { payload: jsonStr, updatedAt: serverTimestamp() }, { merge: true }).catch((e) => {
+        console.error('[Firestore] Failed to save network', e);
+      });
+    }, CLOUD_SAVE_DEBOUNCE_MS);
+    return () => window.clearTimeout(t);
+  }, [networkJson, firebaseUser, remoteReady]);
+
   const exportData = useMemo(() => hydrateNetwork(networkJson), [networkJson]);
 
-  const login = useCallback((user: string, pass: string) => {
+  const login = useCallback((user: string, pass: string): Promise<boolean> => {
+    if (firebaseApp) {
+      const auth = getAuth(firebaseApp);
+      return signInWithEmailAndPassword(auth, user.trim(), pass)
+        .then(() => true)
+        .catch(() => false);
+    }
     const u = import.meta.env.VITE_ADMIN_USERNAME ?? FALLBACK_ADMIN_USERNAME;
     const p = import.meta.env.VITE_ADMIN_PASSWORD ?? FALLBACK_ADMIN_PASSWORD;
     if (user === u && pass === p) {
       sessionStorage.setItem(SESSION_KEY, '1');
-      setAdminOk(true);
-      return true;
+      setLegacyAdminOk(true);
+      return Promise.resolve(true);
     }
-    return false;
+    return Promise.resolve(false);
   }, []);
 
   const logout = useCallback(() => {
-    sessionStorage.removeItem(SESSION_KEY);
-    setAdminOk(false);
+    if (firebaseApp) {
+      void signOut(getAuth(firebaseApp));
+    } else {
+      sessionStorage.removeItem(SESSION_KEY);
+      setLegacyAdminOk(false);
+    }
   }, []);
 
   const value = useMemo(
-    () => ({ exportData, networkJson, setNetworkJson, adminOk, login, logout }),
-    [exportData, networkJson, adminOk, login, logout]
+    () => ({
+      exportData,
+      networkJson,
+      setNetworkJson,
+      adminOk,
+      login,
+      logout,
+      syncMode,
+      remoteReady,
+    }),
+    [exportData, networkJson, adminOk, login, logout, syncMode, remoteReady]
   );
 
   return <ExportDataContext.Provider value={value}>{children}</ExportDataContext.Provider>;
