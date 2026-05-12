@@ -100,8 +100,9 @@ const GRAPH_BASE_H = 600;
 const GRAPH_CX = GRAPH_BASE_W / 2;
 const GRAPH_CY = GRAPH_BASE_H / 2;
 
-const LINK_STROKE_PX = 1.35;
+const LINK_STROKE_PX = 1.4;
 const LINK_COLOR = 'rgba(29, 29, 31, 0.34)';
+const L1_LINK_COLOR = 'rgba(60, 140, 230, 0.32)';
 const LINK_TRANSITION = { duration: 0.55, ease: [0.65, 0, 0.35, 1] as const };
 
 // --- Components ---
@@ -533,14 +534,28 @@ export default function App() {
                   <feGaussianBlur stdDeviation="1" result="blur" />
                   <feComposite in="SourceGraphic" in2="blur" operator="over" />
                 </filter>
+                <radialGradient
+                  id="l1FadeGrad"
+                  gradientUnits="userSpaceOnUse"
+                  cx={GRAPH_CX}
+                  cy={GRAPH_CY}
+                  r="380"
+                >
+                  <stop offset="4%" stopColor="white" stopOpacity="1" />
+                  <stop offset="100%" stopColor="white" stopOpacity="0.15" />
+                </radialGradient>
+                <mask id="l1FadeMask">
+                  <rect x="0" y="0" width={GRAPH_BASE_W} height={GRAPH_BASE_H} fill="url(#l1FadeGrad)" />
+                </mask>
               </defs>
 
               <g className="connections">
+                <g mask="url(#l1FadeMask)">
                 {countries.map((c) => {
                   const start = toSVG(0, 0);
                   const a = scaleXY(c.anchor);
                   const end = toSVG(a.x, a.y);
-                  const opacity = level === 1 ? 1 : level === 2 ? 0.18 : 0.1;
+                  const opacity = level === 1 ? 1 : level === 2 ? 0.22 : 0.12;
                   return (
                     <motion.line
                       key={`line-l1-${c.id}`}
@@ -548,10 +563,9 @@ export default function App() {
                       y1={start.y}
                       x2={end.x}
                       y2={end.y}
-                      stroke={LINK_COLOR}
+                      stroke={L1_LINK_COLOR}
                       strokeWidth={LINK_STROKE_PX}
                       strokeLinecap="round"
-                      strokeLinejoin="round"
                       vectorEffect="nonScalingStroke"
                       initial={{ pathLength: 0, opacity: 0 }}
                       animate={{ pathLength: level >= 1 ? 1 : 0, opacity: level >= 1 ? opacity : 0 }}
@@ -559,6 +573,7 @@ export default function App() {
                     />
                   );
                 })}
+                </g>
 
                 {level >= 2 &&
                   categories.map((cat) => {
@@ -633,7 +648,7 @@ export default function App() {
 
             {/* Nodes Layer */}
             <div className="absolute inset-0 z-[3] flex items-center justify-center pointer-events-none">
-              {/* Root Node */}
+              {/* Root Node — Earth Globe */}
               <motion.button
                 type="button"
                 data-graph-node
@@ -641,20 +656,106 @@ export default function App() {
                   if (level === 0) setLevel(1);
                   else handleBack();
                 }}
-                whileHover={{ scale: level >= 2 ? 1.05 : 1.02 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: level >= 2 ? 1.06 : 1.03 }}
+                whileTap={{ scale: 0.94 }}
                 animate={{
                   width: level >= 2 ? 80 : 140,
                   height: level >= 2 ? 80 : 140,
-                  backgroundColor: level >= 1 ? "#1d1d1f" : "#ffffff",
-                  color: level >= 1 ? "#ffffff" : "#1d1d1f",
-                  opacity: (level >= 2) ? 0.5 : 1
+                  opacity: level >= 2 ? 0.55 : 1,
                 }}
-                className="relative z-40 pointer-events-auto touch-manipulation rounded-full border-[1.5px] border-ink flex flex-col items-center justify-center transition-all duration-500 ease-in-out shadow-sm"
+                style={{
+                  boxShadow: level === 0
+                    ? '0 0 0 1px rgba(100,180,255,0.25), 0 0 36px rgba(80,160,255,0.22), 0 6px 24px rgba(0,0,0,0.32)'
+                    : '0 2px 16px rgba(0,0,0,0.28)',
+                }}
+                className="relative z-40 pointer-events-auto touch-manipulation rounded-full overflow-hidden"
               >
-                {level === 0 && <div className="absolute inset-0 rounded-full border border-ink pulse-ring pointer-events-none" />}
-                <span className={`font-serif leading-tight ${level >= 2 ? 'text-lg' : 'text-xl'}`}>Global</span>
-                <span className={`font-sans font-bold tracking-[0.2em] ${level >= 2 ? 'text-[8px]' : 'text-[10px]'} uppercase opacity-70`}>Export</span>
+                {/* Pulse halo rings */}
+                {level === 0 && (
+                  <>
+                    <div className="absolute inset-0 rounded-full border border-blue-300/35 pulse-ring pointer-events-none" />
+                    <div className="absolute inset-0 rounded-full border border-blue-200/20 pulse-ring pointer-events-none" style={{ animationDelay: '1.3s' }} />
+                  </>
+                )}
+
+                {/* Globe SVG */}
+                <svg
+                  viewBox="0 0 100 100"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="absolute inset-0 w-full h-full"
+                  aria-hidden="true"
+                >
+                  <defs>
+                    <radialGradient id="globeSphere" cx="37%" cy="29%" r="72%">
+                      <stop offset="0%"   stopColor="#8fd4f8" />
+                      <stop offset="22%"  stopColor="#3388c8" />
+                      <stop offset="55%"  stopColor="#0d4880" />
+                      <stop offset="100%" stopColor="#040e22" />
+                    </radialGradient>
+                    <radialGradient id="globeSpec" cx="32%" cy="26%" r="28%">
+                      <stop offset="0%"   stopColor="rgba(255,255,255,0.65)" />
+                      <stop offset="65%"  stopColor="rgba(255,255,255,0.06)" />
+                      <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+                    </radialGradient>
+                    <radialGradient id="globeAtmos" cx="50%" cy="50%" r="50%">
+                      <stop offset="80%" stopColor="rgba(100,180,255,0)" />
+                      <stop offset="100%" stopColor="rgba(100,180,255,0.38)" />
+                    </radialGradient>
+                    <radialGradient id="globeInnerShadow" cx="65%" cy="70%" r="55%">
+                      <stop offset="0%"   stopColor="rgba(0,10,30,0.55)" />
+                      <stop offset="100%" stopColor="rgba(0,10,30,0)" />
+                    </radialGradient>
+                    <clipPath id="globeCircle">
+                      <circle cx="50" cy="50" r="48.5" />
+                    </clipPath>
+                  </defs>
+
+                  {/* Base sphere */}
+                  <circle cx="50" cy="50" r="49" fill="url(#globeSphere)" />
+
+                  {/* Latitude & longitude grid */}
+                  <g clipPath="url(#globeCircle)" fill="none" strokeWidth="0.52">
+                    {/* Static latitudes */}
+                    <g className="globe-grid-static" stroke="rgba(140,215,255,0.32)">
+                      <ellipse cx="50" cy="50"   rx="48.5" ry="9.2" />
+                      <ellipse cx="50" cy="37.2"  rx="41.8" ry="7.9" />
+                      <ellipse cx="50" cy="62.8"  rx="41.8" ry="7.9" />
+                      <ellipse cx="50" cy="25.5"  rx="27.5" ry="5.6" />
+                      <ellipse cx="50" cy="74.5"  rx="27.5" ry="5.6" />
+                      <ellipse cx="50" cy="15.5"  rx="11.5" ry="3.5" />
+                      <ellipse cx="50" cy="84.5"  rx="11.5" ry="3.5" />
+                    </g>
+
+                    {/* Slowly spinning meridians */}
+                    <g className="globe-grid-spin" stroke="rgba(160,225,255,0.28)">
+                      <ellipse cx="50" cy="50" rx="7.8" ry="48.5" />
+                      <ellipse cx="50" cy="50" rx="7.8" ry="48.5" transform="rotate(45 50 50)" />
+                      <ellipse cx="50" cy="50" rx="7.8" ry="48.5" transform="rotate(90 50 50)" />
+                      <ellipse cx="50" cy="50" rx="7.8" ry="48.5" transform="rotate(135 50 50)" />
+                    </g>
+                  </g>
+
+                  {/* Inner depth shadow (lower-right darkening) */}
+                  <circle cx="50" cy="50" r="49" fill="url(#globeInnerShadow)" />
+
+                  {/* Specular highlight */}
+                  <circle cx="50" cy="50" r="49" fill="url(#globeSpec)" />
+
+                  {/* Atmosphere rim glow */}
+                  <circle cx="50" cy="50" r="49" fill="url(#globeAtmos)" />
+                </svg>
+
+                {/* Text overlay */}
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none">
+                  <span className={`font-serif leading-none text-white ${level >= 2 ? 'text-[17px]' : 'text-[21px]'}`}
+                    style={{ textShadow: '0 1px 8px rgba(0,0,0,0.6)' }}>
+                    Global
+                  </span>
+                  <span className={`font-sans font-bold tracking-[0.22em] text-white/60 uppercase mt-0.5 ${level >= 2 ? 'text-[5px]' : 'text-[8px]'}`}
+                    style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
+                    Export
+                  </span>
+                </div>
               </motion.button>
 
               {/* Level 1 Nodes (Countries) */}
