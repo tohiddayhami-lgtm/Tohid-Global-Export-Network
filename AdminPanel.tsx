@@ -62,8 +62,8 @@ export default function AdminPanel() {
   const onLogin = async (e: FormEvent) => {
     e.preventDefault();
     setErr('');
-    const ok = await login(user, pass);
-    if (!ok) setErr(syncMode === 'firebase' ? 'ایمیل یا رمز Firebase نامعتبر است.' : 'Invalid username or password.');
+    const result = await login(user, pass);
+    if (!result.ok) setErr(result.message);
   };
 
   const updateCountry = useCallback(
@@ -244,9 +244,17 @@ export default function AdminPanel() {
           <h1 className="font-serif text-2xl text-ink mb-1">Admin</h1>
           <p className="text-sm text-ink-soft mb-6">
             {syncMode === 'firebase'
-              ? 'با حساب ادمین Firebase وارد شوید؛ تغییرات برای همهٔ بازدیدکنندگان آنلاین اعمال می‌شود.'
+              ? 'با همان ایمیل و رمزی که در Firebase → Authentication → Users ساخته‌اید وارد شوید؛ تغییرات برای همه اعمال می‌شود.'
               : 'Sign in to edit the export network map.'}
           </p>
+          {syncMode === 'local' && (
+            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-950 leading-relaxed">
+              <strong className="font-medium">حالت محلی فعال است.</strong> این build کلیدهای Firebase ندارد؛ فقط نام کاربری/رمز
+              محلی (یا پیش‌فرض کد) اینجا کار می‌کند، نه حساب Firebase. برای ابری شدن:{' '}
+              <code className="rounded bg-amber-100/80 px-1">VITE_FIREBASE_*</code> را در .env پر کنید، دوباره{' '}
+              <code className="rounded bg-amber-100/80 px-1">npm run build</code> و deploy کنید.
+            </div>
+          )}
           <form onSubmit={onLogin} className="space-y-4">
             <div>
               <label className="block text-xs font-medium text-ink-soft mb-1">

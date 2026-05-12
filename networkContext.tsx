@@ -67,12 +67,37 @@ function loadFromStorage(): ExportNetworkJson {
 
 type SyncMode = 'local' | 'firebase';
 
+export type AdminLoginResult = { ok: true } | { ok: false; message: string };
+
+function firebaseLoginErrorMessage(code: string): string {
+  switch (code) {
+    case 'auth/invalid-email':
+      return 'ایمیل نامعتبر است.';
+    case 'auth/user-disabled':
+      return 'این حساب در Firebase غیرفعال است.';
+    case 'auth/user-not-found':
+    case 'auth/wrong-password':
+    case 'auth/invalid-credential':
+      return 'ایمیل یا رمز اشتباه است (یا کاربر در Authentication ساخته نشده).';
+    case 'auth/too-many-requests':
+      return 'تلاش زیاد بود؛ چند دقیقه بعد دوباره امتحان کنید.';
+    case 'auth/network-request-failed':
+      return 'خطای شبکه؛ اتصال اینترنت را چک کنید.';
+    case 'auth/operation-not-allowed':
+      return 'ورود با ایمیل/رمز در Firebase فعال نیست (Authentication → Sign-in method → Email/Password).';
+    case 'auth/unauthorized-domain':
+      return 'این آدرس سایت در Firebase مجاز نیست: Console → Authentication → Settings → Authorized domains.';
+    default:
+      return code ? `ورود ناموفق: ${code}` : 'ورود ناموفق.';
+  }
+}
+
 type Ctx = {
   exportData: ExportDataMap;
   networkJson: ExportNetworkJson;
   setNetworkJson: Dispatch<SetStateAction<ExportNetworkJson>>;
   adminOk: boolean;
-  login: (user: string, pass: string) => Promise<boolean>;
+  login: (user: string, pass: string) => Promise<AdminLoginResult>;
   logout: () => void;
   syncMode: SyncMode;
   remoteReady: boolean;
@@ -158,21 +183,30 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
 
   const exportData = useMemo(() => hydrateNetwork(networkJson), [networkJson]);
 
-  const login = useCallback((user: string, pass: string): Promise<boolean> => {
+  const login = useCallback(async (user: string, pass: string): Promise<AdminLoginResult> => {
     if (firebaseApp) {
       const auth = getAuth(firebaseApp);
-      return signInWithEmailAndPassword(auth, user.trim(), pass)
-        .then(() => true)
-        .catch(() => false);
+      try {
+        await signInWithEmailAndPassword(auth, user.trim(), pass);
+        return { ok: true };
+      } catch (e: unknown) {
+        const code =
+          typeof e === 'object' && e !== null && 'code' in e ? String((e as { code: string }).code) : '';
+        return { ok: false, message: firebaseLoginErrorMessage(code) };
+      }
     }
     const u = import.meta.env.VITE_ADMIN_USERNAME ?? FALLBACK_ADMIN_USERNAME;
     const p = import.meta.env.VITE_ADMIN_PASSWORD ?? FALLBACK_ADMIN_PASSWORD;
     if (user === u && pass === p) {
       sessionStorage.setItem(SESSION_KEY, '1');
       setLegacyAdminOk(true);
-      return Promise.resolve(true);
+      return { ok: true };
     }
-    return Promise.resolve(false);
+    return {
+      ok: false,
+      message:
+        'نام کاربری یا رمز محلی اشتباه است. برای ورود با حساب Firebase، همهٔ متغیرهای VITE_FIREBASE_* را در .env بگذارید، npm run build بزنید و همین نسخه را منتشر کنید؛ در غیر این صورت اپ فقط حالت «محلی» است و حساب Firebase استفاده نمی‌شود.',
+    };
   }, []);
 
   const logout = useCallback(() => {
