@@ -6,8 +6,8 @@
 import { useState, useCallback, useEffect, useMemo, useRef, type PointerEvent as ReactPointerEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { Search, Menu, ArrowLeft, Globe, LocateFixed, Settings2, Loader2, Radio, WifiOff, AlertCircle, type LucideIcon } from 'lucide-react';
-import { useExportData, type NetworkSyncStatus } from './networkContext.tsx';
+import { Search, Menu, ArrowLeft, Globe, LocateFixed, Settings2, type LucideIcon } from 'lucide-react';
+import { useExportData } from './networkContext.tsx';
 import type { Category } from './hydrateNetwork.ts';
 
 const VIEW_MIN_ZOOM = 0.4;
@@ -148,49 +148,8 @@ const FlagIcon = ({ id, active }: { id: string, active: boolean }) => {
   }
 };
 
-function NetworkSyncPill({ status }: { status: NetworkSyncStatus }) {
-  const base =
-    'inline-flex items-center gap-1 rounded-full border border-black/10 bg-white/70 px-2 py-0.5 text-[10px] sm:text-[11px] font-medium text-ink-soft shrink-0';
-  if (status === 'local_only') {
-    return (
-      <span
-        className={base}
-        title="Firebase is not configured — data is stored only on this browser unless you add VITE_FIREBASE_* to .env"
-      >
-        <WifiOff className="w-3 h-3 shrink-0" strokeWidth={2} />
-        Local
-      </span>
-    );
-  }
-  if (status === 'connecting') {
-    return (
-      <span className={base} title="Connecting to cloud storage…">
-        <Loader2 className="w-3 h-3 shrink-0 animate-spin" strokeWidth={2} />
-        Sync…
-      </span>
-    );
-  }
-  if (status === 'error') {
-    return (
-      <span
-        className={`${base} border-red-200 text-red-700 bg-red-50/80`}
-        title="Cloud sync failed — enable Firestore in Firebase Console and deploy security rules"
-      >
-        <AlertCircle className="w-3 h-3 shrink-0" strokeWidth={2} />
-        Sync error
-      </span>
-    );
-  }
-  return (
-    <span className={`${base} border-emerald-200 text-emerald-800 bg-emerald-50/80`} title="Edits from the admin panel sync to all open devices">
-      <Radio className="w-3 h-3 shrink-0 text-emerald-600" strokeWidth={2} />
-      Live
-    </span>
-  );
-}
-
 export default function App() {
-  const { exportData, networkSyncStatus } = useExportData();
+  const { exportData } = useExportData();
   const [level, setLevel] = useState<AppLevel>(0);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -440,7 +399,6 @@ export default function App() {
             </div>
             <span className="font-semibold text-[14px] sm:text-[15px] tracking-tight truncate max-w-[min(200px,52vw)] sm:max-w-none sm:hidden">Global Export Network</span>
             <span className="font-semibold text-[15px] tracking-tight hidden sm:inline">Global Export Network</span>
-            <NetworkSyncPill status={networkSyncStatus} />
           </div>
           <div className="flex items-center gap-2 sm:hidden shrink-0">
             <Link
