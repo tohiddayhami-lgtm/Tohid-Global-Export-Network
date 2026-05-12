@@ -149,6 +149,22 @@
       }
     }
   },
+  "oman": {
+    "id": "oman",
+    "label": "Oman",
+    "flag": "oman",
+    "anchor": { "x": 400, "y": 140 },
+    "categories": {
+      "trade": {
+        "label": "Trade & Logistics",
+        "iconKey": "Truck",
+        "companies": [
+          { "name": "Port of Salalah", "tag": "Gateway hub", "initial": "S", "url": "https://example.com/salalah" },
+          { "name": "Oman Oil", "tag": "Energy exports", "initial": "O", "url": "https://example.com/omanoil" }
+        ]
+      }
+    }
+  },
   "china": {
     "id": "china",
     "label": "China",

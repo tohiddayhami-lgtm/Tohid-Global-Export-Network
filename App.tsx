@@ -130,6 +130,15 @@ const FlagIcon = ({ id, active }: { id: string, active: boolean }) => {
           <path d="M4 6v12M4 6h4v12H4zM8 6h12M8 12h12M8 18h12" />
         </svg>
       );
+    case 'oman':
+      /* Hoist white bar + red field; emblem simplified (khanjar + swords) */
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+          <path d="M4 5h5.25v14H4zM9.25 5H20v14H9.25z" />
+          <path d="M6.1 10.2L6.5 14l.4-3.8" />
+          <path d="M5.35 11.4l2.3 1.4M7.65 11.4l-2.3 1.4" />
+        </svg>
+      );
     case 'china':
       return (
         <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.2" className="w-6 h-6">
@@ -601,7 +610,7 @@ export default function App() {
                         whileHover={{ y: -3 }}
                         className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full border border-border flex items-center justify-center transition-all duration-300 ${selectedCountry === c.id || (level === 1 && false) ? 'bg-ink border-ink text-white' : 'bg-white group-hover:bg-hover'}`}
                       >
-                        <FlagIcon id={c.id} active={selectedCountry === c.id} />
+                        <FlagIcon id={c.flag || c.id} active={selectedCountry === c.id} />
                       </motion.div>
                       <div className="flex flex-col items-center">
                         <span className="text-[14px] font-medium tracking-tight group-hover:text-ink">{c.label}</span>
