@@ -48,7 +48,7 @@ function emptyCountry(id: string): CountryJson {
 }
 
 export default function AdminPanel() {
-  const { adminOk, login, logout, networkJson, setNetworkJson, syncMode, remoteReady } = useExportData();
+  const { adminOk, login, logout, networkJson, setNetworkJson, syncMode } = useExportData();
   const [user, setUser] = useState('');
   const [pass, setPass] = useState('');
   const [err, setErr] = useState('');
@@ -241,36 +241,16 @@ export default function AdminPanel() {
     return (
       <div className="min-h-screen bg-bg flex flex-col items-center justify-center p-6">
         <div className="w-full max-w-sm rounded-2xl border border-border bg-white p-8 shadow-sm">
-          <h1 className="font-serif text-2xl text-ink mb-1">Admin</h1>
-          <p className="text-sm text-ink-soft mb-6">
-            {syncMode === 'firebase'
-              ? 'Sign in with the email and password of a user you created in Firebase → Authentication → Users. Changes sync to everyone via Firestore.'
-              : 'Admin sign-in requires Firebase. Configure the app first (see below).'}
-          </p>
-          {syncMode === 'unconfigured' && (
-            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-950 leading-relaxed space-y-2">
-              <p>
-                <strong className="font-medium">Firebase is not configured.</strong> This build has no web API key / project
-                ID. Add variables to a <code className="rounded bg-amber-100/80 px-1">.env</code> file in the project root
-                (copy from <code className="rounded bg-amber-100/80 px-1">.env.example</code>), then run{' '}
-                <code className="rounded bg-amber-100/80 px-1">npm run build</code> and deploy.
-              </p>
-              <p>
-                Or, without rebuilding: put a file named <code className="rounded bg-amber-100/80 px-1">firebase-config.json</code>{' '}
-                next to <code className="rounded bg-amber-100/80 px-1">index.html</code> on your host (template:{' '}
-                <code className="rounded bg-amber-100/80 px-1">public/firebase-config.json.example</code>).
-              </p>
-            </div>
-          )}
+          <h1 className="font-serif text-2xl text-ink mb-6">Tohid Global Network</h1>
           <form onSubmit={onLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-ink-soft mb-1">Email (Firebase)</label>
+              <label className="block text-xs font-medium text-ink-soft mb-1">User</label>
               <input
                 className="w-full rounded-lg border border-border px-3 py-2 text-sm"
                 value={user}
                 onChange={(e) => setUser(e.target.value)}
                 autoComplete="username"
-                type="email"
+                type="text"
                 disabled={syncMode === 'unconfigured'}
               />
             </div>
@@ -308,14 +288,7 @@ export default function AdminPanel() {
     <div className="min-h-screen bg-bg text-ink">
       <header className="sticky top-0 z-10 border-b border-border bg-white/90 backdrop-blur px-4 py-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-3">
-          <h1 className="font-serif text-lg">Export network — Admin</h1>
-          <span className="text-xs text-ink-soft">
-            {syncMode === 'firebase'
-              ? remoteReady
-                ? 'Cloud sync on — changes apply for everyone'
-                : 'Connecting to server…'
-              : 'Firebase not configured — admin saves are disabled'}
-          </span>
+          <h1 className="font-serif text-lg">Tohid Global Network — Admin</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <label className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium cursor-pointer hover:bg-hover">

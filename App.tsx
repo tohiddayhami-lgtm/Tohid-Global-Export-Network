@@ -407,8 +407,8 @@ export default function App() {
             <div className="w-7 h-7 shrink-0 rounded-full bg-ink flex items-center justify-center">
               <span className="text-white font-serif text-lg leading-none mt-0.5">G</span>
             </div>
-            <span className="font-semibold text-[14px] sm:text-[15px] tracking-tight truncate max-w-[min(200px,52vw)] sm:max-w-none sm:hidden">Global Export Network</span>
-            <span className="font-semibold text-[15px] tracking-tight hidden sm:inline">Global Export Network</span>
+            <span className="font-semibold text-[14px] sm:text-[15px] tracking-tight truncate max-w-[min(200px,52vw)] sm:max-w-none sm:hidden">Tohid Global Network</span>
+            <span className="font-semibold text-[15px] tracking-tight hidden sm:inline">Tohid Global Network</span>
           </div>
           <div className="flex items-center gap-2 sm:hidden shrink-0">
             <Link
