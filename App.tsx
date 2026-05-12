@@ -92,18 +92,9 @@ function getCategoryLayoutPositions(
   return [...inner, ...outerStaggered];
 }
 
-/** Layout reference (px) — graph coordinates assume ~this viewport; scale down on smaller screens. */
+/** Layout reference (px) — graph coordinates in constants.ts assume ~this viewport; scale down on smaller screens. */
 const GRAPH_BASE_W = 880;
 const GRAPH_BASE_H = 600;
-
-/** Graph ↔ SVG use the same logical size so connector lines match nodes on all aspect ratios. */
-const GRAPH_CX = GRAPH_BASE_W / 2;
-const GRAPH_CY = GRAPH_BASE_H / 2;
-
-const LINK_STROKE_PX = 1.4;
-const LINK_COLOR = 'rgba(29, 29, 31, 0.34)';
-const L1_LINK_COLOR = 'rgba(60, 140, 230, 0.32)';
-const LINK_TRANSITION = { duration: 0.55, ease: [0.65, 0, 0.35, 1] as const };
 
 // --- Components ---
 
@@ -184,12 +175,7 @@ export default function App() {
     originPanX: 0,
     originPanY: 0,
   });
-  const pinchRef = useRef<{
-    dist0: number;
-    zoom0: number;
-    pan0: { x: number; y: number };
-    mid0: { x: number; y: number };
-  } | null>(null);
+  const pinchRef = useRef<{ dist0: number; zoom0: number } | null>(null);
   const [canvasSize, setCanvasSize] = useState(() => ({
     width: typeof window !== 'undefined' ? window.innerWidth : GRAPH_BASE_W,
     height: typeof window !== 'undefined' ? Math.max(320, window.innerHeight - 80) : GRAPH_BASE_H,
@@ -199,9 +185,7 @@ export default function App() {
     const w = canvasSize.width;
     const h = canvasSize.height;
     if (w < 1 || h < 1) return 1;
-    const fit = Math.min(w / GRAPH_BASE_W, h / GRAPH_BASE_H);
-    // Slightly above strict fit on phones so the map feels closer to desktop density; user can pan/zoom.
-    return Math.min(1, Math.max(0.52, fit));
+    return Math.min(1, w / GRAPH_BASE_W, h / GRAPH_BASE_H);
   }, [canvasSize.width, canvasSize.height]);
 
   const scaleXY = useCallback(
@@ -303,40 +287,17 @@ export default function App() {
 
     const onTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 2) {
-        const rect = el.getBoundingClientRect();
-        const cx = rect.left + rect.width / 2;
-        const cy = rect.top + rect.height / 2;
-        const t0 = e.touches[0];
-        const t1 = e.touches[1];
-        const midX = (t0.clientX + t1.clientX) / 2 - cx;
-        const midY = (t0.clientY + t1.clientY) / 2 - cy;
-        pinchRef.current = {
-          dist0: touchDist(e.touches),
-          zoom0: viewRef.current.zoom,
-          pan0: { ...viewRef.current.pan },
-          mid0: { x: midX, y: midY },
-        };
+        pinchRef.current = { dist0: touchDist(e.touches), zoom0: viewRef.current.zoom };
       }
     };
 
     const onTouchMove = (e: TouchEvent) => {
       if (e.touches.length >= 2 && pinchRef.current) {
         e.preventDefault();
-        const rect = el.getBoundingClientRect();
-        const cx = rect.left + rect.width / 2;
-        const cy = rect.top + rect.height / 2;
-        const t0 = e.touches[0];
-        const t1 = e.touches[1];
-        const midX = (t0.clientX + t1.clientX) / 2 - cx;
-        const midY = (t0.clientY + t1.clientY) / 2 - cy;
         const d = touchDist(e.touches);
         if (pinchRef.current.dist0 < 1) return;
-        const { zoom0, dist0, mid0, pan0 } = pinchRef.current;
-        const z2 = clampZoom(zoom0 * (d / dist0));
-        const wx = (mid0.x - pan0.x) / zoom0;
-        const wy = (mid0.y - pan0.y) / zoom0;
+        const z2 = clampZoom(pinchRef.current.zoom0 * (d / pinchRef.current.dist0));
         setViewZoom(z2);
-        setViewPan({ x: midX - wx * z2, y: midY - wy * z2 });
       }
     };
 
@@ -420,14 +381,13 @@ export default function App() {
     return category.companies.map((comp, i) => ({ ...comp, pos: positions[i] }));
   }, [selectedCountry, selectedCategory, categories, graphScale, scaleXY, exportData]);
 
-  // Map graph space (origin = canvas center) into SVG user units (same as GRAPH_BASE_*).
-  const toSVG = useCallback(
-    (x: number, y: number) => ({
-      x: GRAPH_CX + x,
-      y: GRAPH_CY + y,
-    }),
-    []
-  );
+  // Coordinate mapper for SVG
+  const toSVG = (x: number, y: number) => {
+    return {
+      x: 500 + x,
+      y: 350 + y
+    };
+  };
 
   const breadcrumb = useMemo(() => {
     if (level === 0) return 'Discover / Countries';
@@ -438,7 +398,7 @@ export default function App() {
   }, [level, selectedCountry, selectedCategory, exportData]);
 
   return (
-    <div className="h-[100dvh] min-h-screen w-full max-w-[100vw] bg-bg flex flex-col overflow-hidden select-none">
+    <div className="min-h-[100dvh] min-h-screen bg-bg flex flex-col overflow-hidden select-none">
       {syncMode === 'firebase' && !remoteReady ? (
         <div
           className="fixed top-0 left-0 right-0 z-[100] h-0.5 bg-ink/15 overflow-hidden"
@@ -450,7 +410,7 @@ export default function App() {
         </div>
       ) : null}
       {/* Top Bar */}
-      <header className="sticky top-0 z-50 shrink-0 min-h-[52px] sm:min-h-[72px] py-1.5 sm:py-0 blur-nav border-b border-black/5 px-3 sm:px-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-1 sm:gap-0 sm:justify-between relative">
+      <header className="sticky top-0 z-50 min-h-[60px] sm:h-[72px] py-2 sm:py-0 blur-nav border-b border-black/5 px-3 sm:px-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-1 sm:gap-0 sm:justify-between relative">
         <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-3 shrink-0">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <div className="w-7 h-7 shrink-0 rounded-full bg-ink flex items-center justify-center">
@@ -481,7 +441,7 @@ export default function App() {
             {breadcrumb}
           </span>
         </div>
-        <p className="sm:hidden text-ink-soft text-[11px] font-medium tracking-tight px-1 text-center leading-snug line-clamp-2">
+        <p className="sm:hidden text-ink-soft text-[11px] font-medium tracking-tight truncate px-1 text-center leading-snug">
           {breadcrumb}
         </p>
 
@@ -524,107 +484,51 @@ export default function App() {
               onPointerCancel={onPanHitPointerUp}
             />
             {/* Background SVG Connections */}
-            <svg
-              className="absolute inset-0 z-[1] w-full h-full pointer-events-none"
-              viewBox={`0 0 ${GRAPH_BASE_W} ${GRAPH_BASE_H}`}
-              preserveAspectRatio="xMidYMid meet"
-            >
+            <svg className="absolute inset-0 z-[1] w-full h-full pointer-events-none" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet">
               <defs>
                 <filter id="glow">
                   <feGaussianBlur stdDeviation="1" result="blur" />
                   <feComposite in="SourceGraphic" in2="blur" operator="over" />
                 </filter>
-                <radialGradient
-                  id="l1FadeGrad"
-                  gradientUnits="userSpaceOnUse"
-                  cx={GRAPH_CX}
-                  cy={GRAPH_CY}
-                  r="380"
-                >
-                  <stop offset="4%" stopColor="white" stopOpacity="1" />
-                  <stop offset="100%" stopColor="white" stopOpacity="0.15" />
-                </radialGradient>
-                <mask id="l1FadeMask">
-                  <rect x="0" y="0" width={GRAPH_BASE_W} height={GRAPH_BASE_H} fill="url(#l1FadeGrad)" />
-                </mask>
               </defs>
 
               <g className="connections">
-                <g mask="url(#l1FadeMask)">
+                {/* Level 1 Lines (Root to Countries) */}
                 {countries.map((c) => {
                   const start = toSVG(0, 0);
                   const a = scaleXY(c.anchor);
                   const end = toSVG(a.x, a.y);
-                  const opacity = level === 1 ? 1 : level === 2 ? 0.22 : 0.12;
+                  const opacity = level === 1 ? 0.9 : (level === 2 ? 0.15 : 0.08);
                   return (
                     <motion.line
                       key={`line-l1-${c.id}`}
-                      x1={start.x}
-                      y1={start.y}
-                      x2={end.x}
-                      y2={end.y}
-                      stroke={L1_LINK_COLOR}
-                      strokeWidth={LINK_STROKE_PX}
-                      strokeLinecap="round"
-                      vectorEffect="nonScalingStroke"
+                      x1={start.x} y1={start.y} x2={end.x} y2={end.y}
+                      stroke="currentColor" strokeWidth={1.4} strokeLinecap="round"
                       initial={{ pathLength: 0, opacity: 0 }}
                       animate={{ pathLength: level >= 1 ? 1 : 0, opacity: level >= 1 ? opacity : 0 }}
-                      transition={{ ...LINK_TRANSITION, delay: 0.08 }}
+                      transition={{ duration: 0.7, ease: [0.65, 0, 0.35, 1], delay: 0.1 }}
                     />
                   );
                 })}
-                </g>
 
-                {level >= 2 &&
-                  categories.map((cat) => {
+                {/* Level 2 Lines (Country to Categories) */}
+                {categories.map((cat) => {
                   const country = exportData[selectedCountry!];
                   const ca = scaleXY(country.anchor);
                   const start = toSVG(ca.x, ca.y);
                   const end = toSVG(cat.pos.x, cat.pos.y);
-                  const opacity = level === 2 ? 1 : level === 3 ? 0.22 : 0.35;
+                  const opacity = level === 2 ? 0.9 : 0.3;
                   return (
                     <motion.line
                       key={`line-l2-${cat.id}`}
-                      x1={start.x}
-                      y1={start.y}
-                      x2={end.x}
-                      y2={end.y}
-                      stroke={LINK_COLOR}
-                      strokeWidth={LINK_STROKE_PX}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      vectorEffect="nonScalingStroke"
+                      x1={start.x} y1={start.y} x2={end.x} y2={end.y}
+                      stroke="currentColor" strokeWidth={1.4} strokeLinecap="round"
                       initial={{ pathLength: 0, opacity: 0 }}
                       animate={{ pathLength: level >= 2 ? 1 : 0, opacity: level >= 2 ? opacity : 0 }}
-                      transition={{ ...LINK_TRANSITION, delay: 0.1 }}
+                      transition={{ duration: 0.6, ease: [0.65, 0, 0.35, 1], delay: 0.2 }}
                     />
                   );
                 })}
-
-                {level === 3 &&
-                  companies.map((comp, ci) => {
-                    const catPos = categories.find((x) => x.id === selectedCategory)?.pos;
-                    if (!catPos) return null;
-                    const start = toSVG(catPos.x, catPos.y);
-                    const end = toSVG(comp.pos.x, comp.pos.y);
-                    return (
-                      <motion.line
-                        key={`line-l3-${selectedCountry}-${selectedCategory}-${ci}`}
-                        x1={start.x}
-                        y1={start.y}
-                        x2={end.x}
-                        y2={end.y}
-                        stroke={LINK_COLOR}
-                        strokeWidth={LINK_STROKE_PX}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        vectorEffect="nonScalingStroke"
-                        initial={{ pathLength: 0, opacity: 0 }}
-                        animate={{ pathLength: 1, opacity: 0.9 }}
-                        transition={LINK_TRANSITION}
-                      />
-                    );
-                  })}
               </g>
             </svg>
 
@@ -648,7 +552,7 @@ export default function App() {
 
             {/* Nodes Layer */}
             <div className="absolute inset-0 z-[3] flex items-center justify-center pointer-events-none">
-              {/* Root Node — Earth Globe */}
+              {/* Root Node */}
               <motion.button
                 type="button"
                 data-graph-node
@@ -656,106 +560,20 @@ export default function App() {
                   if (level === 0) setLevel(1);
                   else handleBack();
                 }}
-                whileHover={{ scale: level >= 2 ? 1.06 : 1.03 }}
-                whileTap={{ scale: 0.94 }}
+                whileHover={{ scale: level >= 2 ? 1.05 : 1.02 }}
+                whileTap={{ scale: 0.95 }}
                 animate={{
                   width: level >= 2 ? 80 : 140,
                   height: level >= 2 ? 80 : 140,
-                  opacity: level >= 2 ? 0.55 : 1,
+                  backgroundColor: level >= 1 ? "#1d1d1f" : "#ffffff",
+                  color: level >= 1 ? "#ffffff" : "#1d1d1f",
+                  opacity: (level >= 2) ? 0.5 : 1
                 }}
-                style={{
-                  boxShadow: level === 0
-                    ? '0 0 0 1px rgba(100,180,255,0.25), 0 0 36px rgba(80,160,255,0.22), 0 6px 24px rgba(0,0,0,0.32)'
-                    : '0 2px 16px rgba(0,0,0,0.28)',
-                }}
-                className="relative z-40 pointer-events-auto touch-manipulation rounded-full overflow-hidden"
+                className="relative z-40 pointer-events-auto touch-manipulation rounded-full border-[1.5px] border-ink flex flex-col items-center justify-center transition-all duration-500 ease-in-out shadow-sm"
               >
-                {/* Pulse halo rings */}
-                {level === 0 && (
-                  <>
-                    <div className="absolute inset-0 rounded-full border border-blue-300/35 pulse-ring pointer-events-none" />
-                    <div className="absolute inset-0 rounded-full border border-blue-200/20 pulse-ring pointer-events-none" style={{ animationDelay: '1.3s' }} />
-                  </>
-                )}
-
-                {/* Globe SVG */}
-                <svg
-                  viewBox="0 0 100 100"
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="absolute inset-0 w-full h-full"
-                  aria-hidden="true"
-                >
-                  <defs>
-                    <radialGradient id="globeSphere" cx="37%" cy="29%" r="72%">
-                      <stop offset="0%"   stopColor="#8fd4f8" />
-                      <stop offset="22%"  stopColor="#3388c8" />
-                      <stop offset="55%"  stopColor="#0d4880" />
-                      <stop offset="100%" stopColor="#040e22" />
-                    </radialGradient>
-                    <radialGradient id="globeSpec" cx="32%" cy="26%" r="28%">
-                      <stop offset="0%"   stopColor="rgba(255,255,255,0.65)" />
-                      <stop offset="65%"  stopColor="rgba(255,255,255,0.06)" />
-                      <stop offset="100%" stopColor="rgba(255,255,255,0)" />
-                    </radialGradient>
-                    <radialGradient id="globeAtmos" cx="50%" cy="50%" r="50%">
-                      <stop offset="80%" stopColor="rgba(100,180,255,0)" />
-                      <stop offset="100%" stopColor="rgba(100,180,255,0.38)" />
-                    </radialGradient>
-                    <radialGradient id="globeInnerShadow" cx="65%" cy="70%" r="55%">
-                      <stop offset="0%"   stopColor="rgba(0,10,30,0.55)" />
-                      <stop offset="100%" stopColor="rgba(0,10,30,0)" />
-                    </radialGradient>
-                    <clipPath id="globeCircle">
-                      <circle cx="50" cy="50" r="48.5" />
-                    </clipPath>
-                  </defs>
-
-                  {/* Base sphere */}
-                  <circle cx="50" cy="50" r="49" fill="url(#globeSphere)" />
-
-                  {/* Latitude & longitude grid */}
-                  <g clipPath="url(#globeCircle)" fill="none" strokeWidth="0.52">
-                    {/* Static latitudes */}
-                    <g className="globe-grid-static" stroke="rgba(140,215,255,0.32)">
-                      <ellipse cx="50" cy="50"   rx="48.5" ry="9.2" />
-                      <ellipse cx="50" cy="37.2"  rx="41.8" ry="7.9" />
-                      <ellipse cx="50" cy="62.8"  rx="41.8" ry="7.9" />
-                      <ellipse cx="50" cy="25.5"  rx="27.5" ry="5.6" />
-                      <ellipse cx="50" cy="74.5"  rx="27.5" ry="5.6" />
-                      <ellipse cx="50" cy="15.5"  rx="11.5" ry="3.5" />
-                      <ellipse cx="50" cy="84.5"  rx="11.5" ry="3.5" />
-                    </g>
-
-                    {/* Slowly spinning meridians */}
-                    <g className="globe-grid-spin" stroke="rgba(160,225,255,0.28)">
-                      <ellipse cx="50" cy="50" rx="7.8" ry="48.5" />
-                      <ellipse cx="50" cy="50" rx="7.8" ry="48.5" transform="rotate(45 50 50)" />
-                      <ellipse cx="50" cy="50" rx="7.8" ry="48.5" transform="rotate(90 50 50)" />
-                      <ellipse cx="50" cy="50" rx="7.8" ry="48.5" transform="rotate(135 50 50)" />
-                    </g>
-                  </g>
-
-                  {/* Inner depth shadow (lower-right darkening) */}
-                  <circle cx="50" cy="50" r="49" fill="url(#globeInnerShadow)" />
-
-                  {/* Specular highlight */}
-                  <circle cx="50" cy="50" r="49" fill="url(#globeSpec)" />
-
-                  {/* Atmosphere rim glow */}
-                  <circle cx="50" cy="50" r="49" fill="url(#globeAtmos)" />
-                </svg>
-
-                {/* Text overlay */}
-                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none">
-                  <span className={`font-serif leading-none text-white ${level >= 2 ? 'text-[17px]' : 'text-[21px]'}`}
-                    style={{ textShadow: '0 1px 8px rgba(0,0,0,0.6)' }}>
-                    Global
-                  </span>
-                  <span className={`font-sans font-bold tracking-[0.22em] text-white/60 uppercase mt-0.5 ${level >= 2 ? 'text-[5px]' : 'text-[8px]'}`}
-                    style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
-                    Export
-                  </span>
-                </div>
+                {level === 0 && <div className="absolute inset-0 rounded-full border border-ink pulse-ring pointer-events-none" />}
+                <span className={`font-serif leading-tight ${level >= 2 ? 'text-lg' : 'text-xl'}`}>Global</span>
+                <span className={`font-sans font-bold tracking-[0.2em] ${level >= 2 ? 'text-[8px]' : 'text-[10px]'} uppercase opacity-70`}>Export</span>
               </motion.button>
 
               {/* Level 1 Nodes (Countries) */}

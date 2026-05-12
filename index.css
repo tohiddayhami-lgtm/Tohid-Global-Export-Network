@@ -14,26 +14,9 @@
 }
 
 @layer base {
-  html {
-    height: 100%;
-    overflow: hidden;
-    overscroll-behavior: none;
-  }
-
   body {
     @apply bg-bg text-ink font-sans antialiased;
     letter-spacing: -0.011em;
-    height: 100%;
-    min-height: 100dvh;
-    overflow: hidden;
-    overscroll-behavior: none;
-    -webkit-touch-callout: none;
-  }
-
-  #root {
-    height: 100%;
-    min-height: 100dvh;
-    overflow: hidden;
   }
 
   h1, h2, h3, .font-serif {
@@ -54,29 +37,10 @@
 }
 
 @keyframes pulse-ring {
-  0% { transform: scale(1); opacity: 0.5; }
-  100% { transform: scale(1.35); opacity: 0; }
+  0% { transform: scale(1); opacity: 0.4; }
+  100% { transform: scale(1.25); opacity: 0; }
 }
 
 .pulse-ring {
-  animation: pulse-ring 2.8s ease-out infinite;
-}
-
-@keyframes globe-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
-@keyframes globe-pulse {
-  0%, 100% { opacity: 0.28; }
-  50%       { opacity: 0.45; }
-}
-
-.globe-grid-spin {
-  transform-origin: 50% 50%;
-  animation: globe-spin 32s linear infinite;
-}
-
-.globe-grid-static {
-  animation: globe-pulse 6s ease-in-out infinite;
+  animation: pulse-ring 2.5s ease-out infinite;
 }
