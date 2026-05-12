@@ -6,7 +6,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef, type PointerEvent as ReactPointerEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { Search, Menu, ArrowLeft, Globe, LocateFixed, Settings2 } from 'lucide-react';
+import { Search, Menu, ArrowLeft, Globe, LocateFixed, Settings2, type LucideIcon } from 'lucide-react';
 import { useExportData } from './networkContext.tsx';
 import type { Category } from './hydrateNetwork.ts';
 
@@ -44,6 +44,52 @@ function getFanPositions(
       y: pivot.y + Math.sin(angle) * radius
     };
   });
+}
+
+/**
+ * Category nodes around a country: wider arc + larger radius as count grows;
+ * splits into two staggered rings when there are many categories (e.g. 14) to reduce overlap.
+ */
+function getCategoryLayoutPositions(
+  count: number,
+  anchor: { x: number; y: number },
+  graphScale: number
+): { x: number; y: number }[] {
+  if (count <= 0) return [];
+  if (count === 1) {
+    return getFanPositions(1, anchor, 215 * graphScale, 120);
+  }
+
+  const minSepDeg = count > 14 ? 21 : count > 10 ? 24 : count > 6 ? 28 : 32;
+  const maxSingleRing = 8;
+
+  if (count <= maxSingleRing) {
+    const spread = Math.min(352, Math.max(132, (count - 1) * minSepDeg + 40));
+    const r = graphScale * Math.min(465, Math.max(186, 200 + count * 12));
+    return getFanPositions(count, anchor, r, spread);
+  }
+
+  const nInner = Math.ceil(count / 2);
+  const nOuter = count - nInner;
+  const spreadIn = Math.min(328, Math.max(128, (nInner - 1) * minSepDeg + 36));
+  const spreadOut = Math.min(328, Math.max(128, (nOuter - 1) * minSepDeg + 36));
+  const rInner = graphScale * Math.min(410, 192 + nInner * 10);
+  const rOuter = graphScale * Math.min(485, 268 + nOuter * 11);
+  const inner = getFanPositions(nInner, anchor, rInner, spreadIn);
+  const outer = getFanPositions(nOuter, anchor, rOuter, spreadOut);
+  const offsetRad =
+    nInner > 1 ? ((spreadIn * Math.PI) / 180 / (nInner - 1)) * 0.5 : (14 * Math.PI) / 180;
+  const cos = Math.cos(offsetRad);
+  const sin = Math.sin(offsetRad);
+  const outerStaggered = outer.map((p) => {
+    const dx = p.x - anchor.x;
+    const dy = p.y - anchor.y;
+    return {
+      x: anchor.x + dx * cos - dy * sin,
+      y: anchor.y + dx * sin + dy * cos,
+    };
+  });
+  return [...inner, ...outerStaggered];
 }
 
 /** Layout reference (px) — graph coordinates in constants.ts assume ~this viewport; scale down on smaller screens. */
@@ -289,9 +335,11 @@ export default function App() {
   const categories = useMemo(() => {
     if (!selectedCountry) return [];
     const country = exportData[selectedCountry];
-    const catList = Object.entries(country.categories) as [string, Category][];
+    const catList = (Object.entries(country.categories) as [string, Category][]).sort(([a], [b]) =>
+      a.localeCompare(b, undefined, { sensitivity: 'base' })
+    );
     const anchor = scaleXY(country.anchor);
-    const positions = getFanPositions(catList.length, anchor, 200 * graphScale, 216);
+    const positions = getCategoryLayoutPositions(catList.length, anchor, graphScale);
     return catList.map(([id, cat], i) => ({
       id,
       label: cat.label,
@@ -556,7 +604,12 @@ export default function App() {
 
               {/* Level 2 Nodes (Categories) */}
               <AnimatePresence>
-                {level >= 2 && categories.map((cat, i) => (
+                {level >= 2 &&
+                  categories.map((cat, i) => {
+                    const Icon = cat.icon as LucideIcon;
+                    const dense = categories.length > 10;
+                    const stepDelay = dense ? Math.min(0.04, 0.5 / categories.length) : 0.08;
+                    return (
                   <motion.div
                     key={cat.id}
                     data-graph-node
@@ -570,12 +623,12 @@ export default function App() {
                     exit={{ scale: 0, opacity: 0 }}
                     transition={{
                       type: 'spring',
-                      damping: 18,
-                      stiffness: 120,
-                      delay: level === 2 ? i * 0.08 : 0
+                      damping: dense ? 22 : 18,
+                      stiffness: dense ? 140 : 120,
+                      delay: level === 2 ? i * stepDelay : 0
                     }}
-                    style={{ transformOrigin: '50% 22px' }}
-                    className="absolute z-20 flex flex-col items-center gap-1.5 group cursor-pointer pointer-events-auto touch-manipulation sm:[transform-origin:50%_24px]"
+                    style={{ transformOrigin: dense ? '50% 20px' : '50% 22px' }}
+                    className={`absolute z-20 flex flex-col items-center group cursor-pointer pointer-events-auto touch-manipulation ${dense ? 'gap-1' : 'gap-1.5'} sm:[transform-origin:50%_24px]`}
                     onClick={() => {
                       if (level === 2) {
                         setSelectedCategory(cat.id);
@@ -585,14 +638,15 @@ export default function App() {
                       }
                     }}
                   >
-                    <div className={`w-11 h-11 sm:w-[56px] sm:h-[56px] rounded-full border border-border flex items-center justify-center transition-all duration-300 ${selectedCategory === cat.id ? 'bg-ink border-ink text-white' : 'bg-white group-hover:bg-hover'}`}>
-                      {cat.icon && <cat.icon className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={1.5} />}
+                    <div className={`${dense ? 'w-10 h-10 sm:w-11 sm:h-11' : 'w-11 h-11 sm:w-[56px] sm:h-[56px]'} shrink-0 rounded-full border border-border flex items-center justify-center transition-all duration-300 ${selectedCategory === cat.id ? 'bg-ink border-ink text-white' : 'bg-white group-hover:bg-hover'}`}>
+                      <Icon className={dense ? 'w-4 h-4 sm:w-[18px] sm:h-[18px]' : 'w-5 h-5 sm:w-6 sm:h-6'} strokeWidth={1.5} />
                     </div>
-                    <div className="flex flex-col items-center max-w-[80px] text-center">
-                      <span className="text-[12px] sm:text-[13px] leading-tight font-medium tracking-tight">{cat.label}</span>
+                    <div className={`flex flex-col items-center text-center ${dense ? 'max-w-[68px] sm:max-w-[76px]' : 'max-w-[80px]'}`}>
+                      <span className={`${dense ? 'text-[10px] sm:text-[11px]' : 'text-[12px] sm:text-[13px]'} leading-tight font-medium tracking-tight`}>{cat.label}</span>
                     </div>
                   </motion.div>
-                ))}
+                    );
+                  })}
               </AnimatePresence>
 
               {/* Level 3 Nodes (Companies) */}
