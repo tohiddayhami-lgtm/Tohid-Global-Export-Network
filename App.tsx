@@ -92,9 +92,17 @@ function getCategoryLayoutPositions(
   return [...inner, ...outerStaggered];
 }
 
-/** Layout reference (px) — graph coordinates in constants.ts assume ~this viewport; scale down on smaller screens. */
+/** Layout reference (px) — graph coordinates assume ~this viewport; scale down on smaller screens. */
 const GRAPH_BASE_W = 880;
 const GRAPH_BASE_H = 600;
+
+/** Graph ↔ SVG use the same logical size so connector lines match nodes on all aspect ratios. */
+const GRAPH_CX = GRAPH_BASE_W / 2;
+const GRAPH_CY = GRAPH_BASE_H / 2;
+
+const LINK_STROKE_PX = 1.35;
+const LINK_COLOR = 'rgba(29, 29, 31, 0.34)';
+const LINK_TRANSITION = { duration: 0.55, ease: [0.65, 0, 0.35, 1] as const };
 
 // --- Components ---
 
@@ -175,7 +183,12 @@ export default function App() {
     originPanX: 0,
     originPanY: 0,
   });
-  const pinchRef = useRef<{ dist0: number; zoom0: number } | null>(null);
+  const pinchRef = useRef<{
+    dist0: number;
+    zoom0: number;
+    pan0: { x: number; y: number };
+    mid0: { x: number; y: number };
+  } | null>(null);
   const [canvasSize, setCanvasSize] = useState(() => ({
     width: typeof window !== 'undefined' ? window.innerWidth : GRAPH_BASE_W,
     height: typeof window !== 'undefined' ? Math.max(320, window.innerHeight - 80) : GRAPH_BASE_H,
@@ -185,7 +198,9 @@ export default function App() {
     const w = canvasSize.width;
     const h = canvasSize.height;
     if (w < 1 || h < 1) return 1;
-    return Math.min(1, w / GRAPH_BASE_W, h / GRAPH_BASE_H);
+    const fit = Math.min(w / GRAPH_BASE_W, h / GRAPH_BASE_H);
+    // Slightly above strict fit on phones so the map feels closer to desktop density; user can pan/zoom.
+    return Math.min(1, Math.max(0.52, fit));
   }, [canvasSize.width, canvasSize.height]);
 
   const scaleXY = useCallback(
@@ -287,17 +302,40 @@ export default function App() {
 
     const onTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 2) {
-        pinchRef.current = { dist0: touchDist(e.touches), zoom0: viewRef.current.zoom };
+        const rect = el.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const t0 = e.touches[0];
+        const t1 = e.touches[1];
+        const midX = (t0.clientX + t1.clientX) / 2 - cx;
+        const midY = (t0.clientY + t1.clientY) / 2 - cy;
+        pinchRef.current = {
+          dist0: touchDist(e.touches),
+          zoom0: viewRef.current.zoom,
+          pan0: { ...viewRef.current.pan },
+          mid0: { x: midX, y: midY },
+        };
       }
     };
 
     const onTouchMove = (e: TouchEvent) => {
       if (e.touches.length >= 2 && pinchRef.current) {
         e.preventDefault();
+        const rect = el.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const t0 = e.touches[0];
+        const t1 = e.touches[1];
+        const midX = (t0.clientX + t1.clientX) / 2 - cx;
+        const midY = (t0.clientY + t1.clientY) / 2 - cy;
         const d = touchDist(e.touches);
         if (pinchRef.current.dist0 < 1) return;
-        const z2 = clampZoom(pinchRef.current.zoom0 * (d / pinchRef.current.dist0));
+        const { zoom0, dist0, mid0, pan0 } = pinchRef.current;
+        const z2 = clampZoom(zoom0 * (d / dist0));
+        const wx = (mid0.x - pan0.x) / zoom0;
+        const wy = (mid0.y - pan0.y) / zoom0;
         setViewZoom(z2);
+        setViewPan({ x: midX - wx * z2, y: midY - wy * z2 });
       }
     };
 
@@ -381,13 +419,14 @@ export default function App() {
     return category.companies.map((comp, i) => ({ ...comp, pos: positions[i] }));
   }, [selectedCountry, selectedCategory, categories, graphScale, scaleXY, exportData]);
 
-  // Coordinate mapper for SVG
-  const toSVG = (x: number, y: number) => {
-    return {
-      x: 500 + x,
-      y: 350 + y
-    };
-  };
+  // Map graph space (origin = canvas center) into SVG user units (same as GRAPH_BASE_*).
+  const toSVG = useCallback(
+    (x: number, y: number) => ({
+      x: GRAPH_CX + x,
+      y: GRAPH_CY + y,
+    }),
+    []
+  );
 
   const breadcrumb = useMemo(() => {
     if (level === 0) return 'Discover / Countries';
@@ -398,7 +437,7 @@ export default function App() {
   }, [level, selectedCountry, selectedCategory, exportData]);
 
   return (
-    <div className="min-h-[100dvh] min-h-screen bg-bg flex flex-col overflow-hidden select-none">
+    <div className="h-[100dvh] min-h-screen w-full max-w-[100vw] bg-bg flex flex-col overflow-hidden select-none">
       {syncMode === 'firebase' && !remoteReady ? (
         <div
           className="fixed top-0 left-0 right-0 z-[100] h-0.5 bg-ink/15 overflow-hidden"
@@ -410,7 +449,7 @@ export default function App() {
         </div>
       ) : null}
       {/* Top Bar */}
-      <header className="sticky top-0 z-50 min-h-[60px] sm:h-[72px] py-2 sm:py-0 blur-nav border-b border-black/5 px-3 sm:px-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-1 sm:gap-0 sm:justify-between relative">
+      <header className="sticky top-0 z-50 shrink-0 min-h-[52px] sm:min-h-[72px] py-1.5 sm:py-0 blur-nav border-b border-black/5 px-3 sm:px-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-1 sm:gap-0 sm:justify-between relative">
         <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-3 shrink-0">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <div className="w-7 h-7 shrink-0 rounded-full bg-ink flex items-center justify-center">
@@ -441,7 +480,7 @@ export default function App() {
             {breadcrumb}
           </span>
         </div>
-        <p className="sm:hidden text-ink-soft text-[11px] font-medium tracking-tight truncate px-1 text-center leading-snug">
+        <p className="sm:hidden text-ink-soft text-[11px] font-medium tracking-tight px-1 text-center leading-snug line-clamp-2">
           {breadcrumb}
         </p>
 
@@ -484,7 +523,11 @@ export default function App() {
               onPointerCancel={onPanHitPointerUp}
             />
             {/* Background SVG Connections */}
-            <svg className="absolute inset-0 z-[1] w-full h-full pointer-events-none" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet">
+            <svg
+              className="absolute inset-0 z-[1] w-full h-full pointer-events-none"
+              viewBox={`0 0 ${GRAPH_BASE_W} ${GRAPH_BASE_H}`}
+              preserveAspectRatio="xMidYMid meet"
+            >
               <defs>
                 <filter id="glow">
                   <feGaussianBlur stdDeviation="1" result="blur" />
@@ -493,42 +536,80 @@ export default function App() {
               </defs>
 
               <g className="connections">
-                {/* Level 1 Lines (Root to Countries) */}
                 {countries.map((c) => {
                   const start = toSVG(0, 0);
                   const a = scaleXY(c.anchor);
                   const end = toSVG(a.x, a.y);
-                  const opacity = level === 1 ? 0.9 : (level === 2 ? 0.15 : 0.08);
+                  const opacity = level === 1 ? 1 : level === 2 ? 0.18 : 0.1;
                   return (
                     <motion.line
                       key={`line-l1-${c.id}`}
-                      x1={start.x} y1={start.y} x2={end.x} y2={end.y}
-                      stroke="currentColor" strokeWidth={1.4} strokeLinecap="round"
+                      x1={start.x}
+                      y1={start.y}
+                      x2={end.x}
+                      y2={end.y}
+                      stroke={LINK_COLOR}
+                      strokeWidth={LINK_STROKE_PX}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      vectorEffect="nonScalingStroke"
                       initial={{ pathLength: 0, opacity: 0 }}
                       animate={{ pathLength: level >= 1 ? 1 : 0, opacity: level >= 1 ? opacity : 0 }}
-                      transition={{ duration: 0.7, ease: [0.65, 0, 0.35, 1], delay: 0.1 }}
+                      transition={{ ...LINK_TRANSITION, delay: 0.08 }}
                     />
                   );
                 })}
 
-                {/* Level 2 Lines (Country to Categories) */}
-                {categories.map((cat) => {
+                {level >= 2 &&
+                  categories.map((cat) => {
                   const country = exportData[selectedCountry!];
                   const ca = scaleXY(country.anchor);
                   const start = toSVG(ca.x, ca.y);
                   const end = toSVG(cat.pos.x, cat.pos.y);
-                  const opacity = level === 2 ? 0.9 : 0.3;
+                  const opacity = level === 2 ? 1 : level === 3 ? 0.22 : 0.35;
                   return (
                     <motion.line
                       key={`line-l2-${cat.id}`}
-                      x1={start.x} y1={start.y} x2={end.x} y2={end.y}
-                      stroke="currentColor" strokeWidth={1.4} strokeLinecap="round"
+                      x1={start.x}
+                      y1={start.y}
+                      x2={end.x}
+                      y2={end.y}
+                      stroke={LINK_COLOR}
+                      strokeWidth={LINK_STROKE_PX}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      vectorEffect="nonScalingStroke"
                       initial={{ pathLength: 0, opacity: 0 }}
                       animate={{ pathLength: level >= 2 ? 1 : 0, opacity: level >= 2 ? opacity : 0 }}
-                      transition={{ duration: 0.6, ease: [0.65, 0, 0.35, 1], delay: 0.2 }}
+                      transition={{ ...LINK_TRANSITION, delay: 0.1 }}
                     />
                   );
                 })}
+
+                {level === 3 &&
+                  companies.map((comp, ci) => {
+                    const catPos = categories.find((x) => x.id === selectedCategory)?.pos;
+                    if (!catPos) return null;
+                    const start = toSVG(catPos.x, catPos.y);
+                    const end = toSVG(comp.pos.x, comp.pos.y);
+                    return (
+                      <motion.line
+                        key={`line-l3-${selectedCountry}-${selectedCategory}-${ci}`}
+                        x1={start.x}
+                        y1={start.y}
+                        x2={end.x}
+                        y2={end.y}
+                        stroke={LINK_COLOR}
+                        strokeWidth={LINK_STROKE_PX}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        vectorEffect="nonScalingStroke"
+                        initial={{ pathLength: 0, opacity: 0 }}
+                        animate={{ pathLength: 1, opacity: 0.9 }}
+                        transition={LINK_TRANSITION}
+                      />
+                    );
+                  })}
               </g>
             </svg>
 
