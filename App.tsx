@@ -395,7 +395,7 @@ export default function App() {
           className="fixed top-0 left-0 right-0 z-[100] h-0.5 bg-ink/15 overflow-hidden"
           role="status"
           aria-live="polite"
-          aria-label="در حال همگام‌سازی با سرور"
+          aria-label="Syncing with server"
         >
           <div className="h-full w-1/3 bg-ink/50 animate-pulse" />
         </div>

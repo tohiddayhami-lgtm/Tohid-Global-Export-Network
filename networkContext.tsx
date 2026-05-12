@@ -28,15 +28,10 @@ import defaultNetworkJson from './default-network.json';
 import { firebaseApp } from './firebase.ts';
 
 const STORAGE_KEY = 'gen_export_network_v1';
-const SESSION_KEY = 'gen_export_admin_session';
 
 const FIRESTORE_COLLECTION = 'config';
 const FIRESTORE_DOC_ID = 'export_network';
-const CLOUD_SAVE_DEBOUNCE_MS = 1500;
-
-/** Used only when `VITE_ADMIN_*` are not set in `.env`. Override in production. */
-const FALLBACK_ADMIN_USERNAME = 'tgen_export_operator';
-const FALLBACK_ADMIN_PASSWORD = 'Tg7!kM9pL2@vN4#xQ8wR3hJ6zC1fB5dS0eA';
+const CLOUD_SAVE_DEBOUNCE_MS = 500;
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -81,30 +76,31 @@ function getInitialNetworkJson(): ExportNetworkJson {
   return loadFromStorage();
 }
 
-type SyncMode = 'local' | 'firebase';
+/** `firebase` = SDK initialized; `unconfigured` = missing web config (no admin sign-in). */
+type SyncMode = 'firebase' | 'unconfigured';
 
 export type AdminLoginResult = { ok: true } | { ok: false; message: string };
 
 function firebaseLoginErrorMessage(code: string): string {
   switch (code) {
     case 'auth/invalid-email':
-      return 'ایمیل نامعتبر است.';
+      return 'Invalid email address.';
     case 'auth/user-disabled':
-      return 'این حساب در Firebase غیرفعال است.';
+      return 'This account has been disabled in Firebase.';
     case 'auth/user-not-found':
     case 'auth/wrong-password':
     case 'auth/invalid-credential':
-      return 'ایمیل یا رمز اشتباه است (یا کاربر در Authentication ساخته نشده).';
+      return 'Wrong email or password (or the user was not created in Firebase Authentication).';
     case 'auth/too-many-requests':
-      return 'تلاش زیاد بود؛ چند دقیقه بعد دوباره امتحان کنید.';
+      return 'Too many attempts. Try again in a few minutes.';
     case 'auth/network-request-failed':
-      return 'خطای شبکه؛ اتصال اینترنت را چک کنید.';
+      return 'Network error. Check your connection.';
     case 'auth/operation-not-allowed':
-      return 'ورود با ایمیل/رمز در Firebase فعال نیست (Authentication → Sign-in method → Email/Password).';
+      return 'Email/password sign-in is not enabled. In Firebase Console: Authentication → Sign-in method → Email/Password.';
     case 'auth/unauthorized-domain':
-      return 'این آدرس سایت در Firebase مجاز نیست: Console → Authentication → Settings → Authorized domains.';
+      return 'This site domain is not authorized. Firebase Console → Authentication → Settings → Authorized domains.';
     default:
-      return code ? `ورود ناموفق: ${code}` : 'ورود ناموفق.';
+      return code ? `Sign-in failed: ${code}` : 'Sign-in failed.';
   }
 }
 
@@ -122,22 +118,19 @@ type Ctx = {
 const ExportDataContext = createContext<Ctx | null>(null);
 
 export function ExportDataProvider({ children }: { children: ReactNode }) {
-  const syncMode: SyncMode = firebaseApp ? 'firebase' : 'local';
+  const syncMode: SyncMode = firebaseApp ? 'firebase' : 'unconfigured';
   const [networkJson, setNetworkJson] = useState<ExportNetworkJson>(getInitialNetworkJson);
   const networkJsonRef = useRef(networkJson);
+  networkJsonRef.current = networkJson;
   /** Monotonic Firestore `rev` last applied; -1 = none yet; 0 = legacy docs without `rev`. */
   const lastAppliedRemoteRevRef = useRef(-1);
-  useEffect(() => {
-    networkJsonRef.current = networkJson;
-  }, [networkJson]);
+  const cloudSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flushPendingCloudSaveRef = useRef<() => void>(() => {});
 
-  const [legacyAdminOk, setLegacyAdminOk] = useState(
-    () => typeof sessionStorage !== 'undefined' && sessionStorage.getItem(SESSION_KEY) === '1'
-  );
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [remoteReady, setRemoteReady] = useState(() => !firebaseApp);
 
-  const adminOk = syncMode === 'firebase' ? !!firebaseUser : legacyAdminOk;
+  const adminOk = !!firebaseUser;
 
   useEffect(() => {
     if (!firebaseApp) return;
@@ -185,13 +178,13 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
           return;
         }
         lastAppliedRemoteRevRef.current = 0;
-        setNetworkJson(parsed);
+        setNetworkJson(structuredClone(parsed));
         setRemoteReady(true);
         return;
       }
       lastAppliedRemoteRevRef.current = revNum;
       if (JSON.stringify(parsed) !== JSON.stringify(networkJsonRef.current)) {
-        setNetworkJson(parsed);
+        setNetworkJson(structuredClone(parsed));
       }
       setRemoteReady(true);
     };
@@ -233,56 +226,73 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
   }, [networkJson]);
 
   useEffect(() => {
-    if (!firebaseApp || !firebaseUser || !remoteReady) return;
+    if (!firebaseApp || !firebaseUser || !remoteReady) {
+      flushPendingCloudSaveRef.current = () => {};
+      return;
+    }
     const db = getFirestore(firebaseApp);
     const ref = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
-    const jsonStr = JSON.stringify(networkJson);
-    const t = window.setTimeout(() => {
+
+    const runSave = () => {
+      const payload = JSON.stringify(networkJsonRef.current);
       void setDoc(
         ref,
-        { payload: jsonStr, updatedAt: serverTimestamp(), rev: increment(1) },
+        { payload, updatedAt: serverTimestamp(), rev: increment(1) },
         { merge: true }
       ).catch((e) => {
         console.error('[Firestore] Failed to save network', e);
       });
+    };
+
+    cloudSaveTimerRef.current = window.setTimeout(() => {
+      cloudSaveTimerRef.current = null;
+      runSave();
     }, CLOUD_SAVE_DEBOUNCE_MS);
-    return () => window.clearTimeout(t);
+
+    const flushIfPending = () => {
+      if (cloudSaveTimerRef.current === null) return;
+      window.clearTimeout(cloudSaveTimerRef.current);
+      cloudSaveTimerRef.current = null;
+      runSave();
+    };
+    flushPendingCloudSaveRef.current = flushIfPending;
+
+    const onPageHide = () => {
+      flushIfPending();
+    };
+    window.addEventListener('pagehide', onPageHide);
+
+    return () => {
+      window.removeEventListener('pagehide', onPageHide);
+      flushIfPending();
+      flushPendingCloudSaveRef.current = () => {};
+    };
   }, [networkJson, firebaseUser, remoteReady]);
 
   const exportData = useMemo(() => hydrateNetwork(networkJson), [networkJson]);
 
   const login = useCallback(async (user: string, pass: string): Promise<AdminLoginResult> => {
-    if (firebaseApp) {
-      const auth = getAuth(firebaseApp);
-      try {
-        await signInWithEmailAndPassword(auth, user.trim(), pass);
-        return { ok: true };
-      } catch (e: unknown) {
-        const code =
-          typeof e === 'object' && e !== null && 'code' in e ? String((e as { code: string }).code) : '';
-        return { ok: false, message: firebaseLoginErrorMessage(code) };
-      }
+    if (!firebaseApp) {
+      return {
+        ok: false,
+        message:
+          'Firebase is not configured. Add VITE_FIREBASE_* to `.env` and run `npm run build`, or deploy `firebase-config.json` next to `index.html` (see `public/firebase-config.json.example`).',
+      };
     }
-    const u = import.meta.env.VITE_ADMIN_USERNAME ?? FALLBACK_ADMIN_USERNAME;
-    const p = import.meta.env.VITE_ADMIN_PASSWORD ?? FALLBACK_ADMIN_PASSWORD;
-    if (user === u && pass === p) {
-      sessionStorage.setItem(SESSION_KEY, '1');
-      setLegacyAdminOk(true);
+    const auth = getAuth(firebaseApp);
+    try {
+      await signInWithEmailAndPassword(auth, user.trim(), pass);
       return { ok: true };
+    } catch (e: unknown) {
+      const code =
+        typeof e === 'object' && e !== null && 'code' in e ? String((e as { code: string }).code) : '';
+      return { ok: false, message: firebaseLoginErrorMessage(code) };
     }
-    return {
-      ok: false,
-      message:
-        'نام کاربری یا رمز محلی اشتباه است. برای ورود با حساب Firebase، همهٔ متغیرهای VITE_FIREBASE_* را در .env بگذارید، npm run build بزنید و همین نسخه را منتشر کنید؛ در غیر این صورت اپ فقط حالت «محلی» است و حساب Firebase استفاده نمی‌شود.',
-    };
   }, []);
 
   const logout = useCallback(() => {
     if (firebaseApp) {
       void signOut(getAuth(firebaseApp));
-    } else {
-      sessionStorage.removeItem(SESSION_KEY);
-      setLegacyAdminOk(false);
     }
   }, []);
 

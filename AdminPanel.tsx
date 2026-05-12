@@ -244,44 +244,52 @@ export default function AdminPanel() {
           <h1 className="font-serif text-2xl text-ink mb-1">Admin</h1>
           <p className="text-sm text-ink-soft mb-6">
             {syncMode === 'firebase'
-              ? 'با همان ایمیل و رمزی که در Firebase → Authentication → Users ساخته‌اید وارد شوید؛ تغییرات برای همه اعمال می‌شود.'
-              : 'Sign in to edit the export network map.'}
+              ? 'Sign in with the email and password of a user you created in Firebase → Authentication → Users. Changes sync to everyone via Firestore.'
+              : 'Admin sign-in requires Firebase. Configure the app first (see below).'}
           </p>
-          {syncMode === 'local' && (
-            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-950 leading-relaxed">
-              <strong className="font-medium">حالت محلی فعال است.</strong> این build کلیدهای Firebase ندارد؛ فقط نام کاربری/رمز
-              محلی (یا پیش‌فرض کد) اینجا کار می‌کند، نه حساب Firebase. برای ابری شدن:{' '}
-              <code className="rounded bg-amber-100/80 px-1">VITE_FIREBASE_*</code> را در .env پر کنید، دوباره{' '}
-              <code className="rounded bg-amber-100/80 px-1">npm run build</code> و deploy کنید.
+          {syncMode === 'unconfigured' && (
+            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-950 leading-relaxed space-y-2">
+              <p>
+                <strong className="font-medium">Firebase is not configured.</strong> This build has no web API key / project
+                ID. Add variables to a <code className="rounded bg-amber-100/80 px-1">.env</code> file in the project root
+                (copy from <code className="rounded bg-amber-100/80 px-1">.env.example</code>), then run{' '}
+                <code className="rounded bg-amber-100/80 px-1">npm run build</code> and deploy.
+              </p>
+              <p>
+                Or, without rebuilding: put a file named <code className="rounded bg-amber-100/80 px-1">firebase-config.json</code>{' '}
+                next to <code className="rounded bg-amber-100/80 px-1">index.html</code> on your host (template:{' '}
+                <code className="rounded bg-amber-100/80 px-1">public/firebase-config.json.example</code>).
+              </p>
             </div>
           )}
           <form onSubmit={onLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-ink-soft mb-1">
-                {syncMode === 'firebase' ? 'ایمیل (Firebase)' : 'Username'}
-              </label>
+              <label className="block text-xs font-medium text-ink-soft mb-1">Email (Firebase)</label>
               <input
                 className="w-full rounded-lg border border-border px-3 py-2 text-sm"
                 value={user}
                 onChange={(e) => setUser(e.target.value)}
                 autoComplete="username"
-                type={syncMode === 'firebase' ? 'email' : 'text'}
+                type="email"
+                disabled={syncMode === 'unconfigured'}
               />
             </div>
             <div>
               <label className="block text-xs font-medium text-ink-soft mb-1">Password</label>
               <input
                 type="password"
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm disabled:opacity-50"
                 value={pass}
                 onChange={(e) => setPass(e.target.value)}
                 autoComplete="current-password"
+                disabled={syncMode === 'unconfigured'}
               />
             </div>
             {err && <p className="text-sm text-red-600">{err}</p>}
             <button
               type="submit"
-              className="w-full rounded-full bg-ink text-white py-2.5 text-sm font-medium hover:opacity-90"
+              disabled={syncMode === 'unconfigured'}
+              className="w-full rounded-full bg-ink text-white py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-50 disabled:pointer-events-none"
             >
               Sign in
             </button>
@@ -304,9 +312,9 @@ export default function AdminPanel() {
           <span className="text-xs text-ink-soft">
             {syncMode === 'firebase'
               ? remoteReady
-                ? 'همگام‌سازی ابری فعال — تغییرات برای همه اعمال می‌شود'
-                : 'در حال اتصال به سرور…'
-              : 'فقط در این مرورگر ذخیره می‌شود'}
+                ? 'Cloud sync on — changes apply for everyone'
+                : 'Connecting to server…'
+              : 'Firebase not configured — admin saves are disabled'}
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
