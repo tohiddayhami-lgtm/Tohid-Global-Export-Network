@@ -6,6 +6,3 @@ coverage/
 *.log
 .env*
 !.env.example
-
-# Runtime Firebase Web config (copy from firebase-config.json.example); do not commit secrets.
-public/firebase-config.json

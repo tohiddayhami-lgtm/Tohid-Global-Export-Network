@@ -5,9 +5,12 @@ import App from './App.tsx';
 import AdminPanel from './AdminPanel.tsx';
 import { ExportDataProvider } from './networkContext.tsx';
 
+const routerBasename =
+  import.meta.env.BASE_URL.replace(/\/$/, '') === '' ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '');
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
+    <BrowserRouter basename={routerBasename}>
       <ExportDataProvider>
         <Routes>
           <Route path="/admin" element={<AdminPanel />} />

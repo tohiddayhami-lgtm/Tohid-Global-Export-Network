@@ -5,7 +5,10 @@ import {defineConfig, loadEnv} from 'vite';
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
+  /** Subpath hosting (e.g. GitHub Pages project site): set `VITE_BASE_PATH=/your-repo-name/` in `.env.production`. */
+  const base = env.VITE_BASE_PATH?.trim() || '/';
   return {
+    base,
     plugins: [react(), tailwindcss()],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),

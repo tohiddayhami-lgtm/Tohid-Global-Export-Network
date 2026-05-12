@@ -88,7 +88,8 @@ export async function ensureFirebaseApp(): Promise<void> {
 
   let file: Record<string, unknown> | null = null;
   try {
-    const res = await fetch('/firebase-config.json', { cache: 'no-store' });
+    // Must respect Vite `base` (e.g. GitHub Pages: /repo-name/) — absolute `/firebase-config.json` 404s on subpaths.
+    const res = await fetch(`${import.meta.env.BASE_URL}firebase-config.json`, { cache: 'no-store' });
     if (res.ok) {
       const data: unknown = await res.json();
       if (isPlainObject(data)) file = data;
