@@ -462,8 +462,211 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Stage */}
-      <main ref={canvasRef} className="flex-1 min-h-0 relative overflow-hidden bg-bg">
+      {/* ===== MOBILE VIEW (sm: and above are hidden) ===== */}
+      <main className="sm:hidden flex-1 flex flex-col min-h-0 bg-bg">
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto overscroll-contain">
+          <AnimatePresence mode="wait">
+
+            {/* Level 0 — Welcome */}
+            {level === 0 && (
+              <motion.div
+                key="m0"
+                initial={{ opacity: 0, scale: 0.97 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.97 }}
+                transition={{ duration: 0.28 }}
+                className="min-h-[calc(100dvh-60px)] flex flex-col items-center justify-center px-6 py-16 gap-6"
+              >
+                <div className="w-24 h-24 rounded-full bg-ink flex items-center justify-center shadow-xl">
+                  <span className="text-white font-serif text-5xl leading-none mt-1">G</span>
+                </div>
+                <div className="flex flex-col items-center gap-1 text-center">
+                  <h1 className="font-serif text-[28px] text-ink">Tohid Global</h1>
+                  <p className="text-[14px] text-ink-soft">Export Network</p>
+                </div>
+                <div className="w-8 h-px bg-border" />
+                <p className="text-center text-[14px] text-ink-soft max-w-[260px] leading-relaxed">
+                  Discover export markets and trading companies worldwide.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setLevel(1)}
+                  className="mt-2 bg-ink text-white px-8 py-4 rounded-full text-[15px] font-medium tracking-tight active:scale-95 transition-transform shadow-lg"
+                >
+                  Explore Networks
+                </button>
+                <div className="flex gap-2 mt-2">
+                  <div className="w-1.5 h-1.5 bg-ink/15 rounded-full" />
+                  <div className="w-1.5 h-1.5 bg-ink/50 rounded-full animate-pulse" />
+                  <div className="w-1.5 h-1.5 bg-ink/15 rounded-full" />
+                </div>
+              </motion.div>
+            )}
+
+            {/* Level 1 — Countries grid */}
+            {level === 1 && (
+              <motion.div
+                key="m1"
+                initial={{ opacity: 0, x: 28 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -28 }}
+                transition={{ duration: 0.24 }}
+                className="px-4 pt-6 pb-6"
+              >
+                <div className="mb-5">
+                  <h2 className="font-serif text-[22px] text-ink">Countries</h2>
+                  <p className="text-[13px] text-ink-soft mt-1">Select a market to explore</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {countries.map((c, i) => (
+                    <motion.button
+                      key={c.id}
+                      type="button"
+                      initial={{ opacity: 0, y: 16 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      onClick={() => { setSelectedCountry(c.id); setLevel(2); }}
+                      className="flex flex-col items-center gap-3 bg-white rounded-2xl border border-border px-3 py-5 active:scale-[0.96] transition-transform shadow-sm text-center touch-manipulation"
+                    >
+                      <div className="w-14 h-14 rounded-full border border-border flex items-center justify-center bg-bg">
+                        <FlagIcon id={c.flag || c.id} active={false} />
+                      </div>
+                      <div>
+                        <div className="text-[14px] font-semibold tracking-tight">{c.label}</div>
+                        <div className="text-[11px] text-ink-soft mt-0.5">{Object.keys(c.categories).length} Markets</div>
+                      </div>
+                    </motion.button>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Level 2 — Categories list */}
+            {level === 2 && selectedCountry && (
+              <motion.div
+                key="m2"
+                initial={{ opacity: 0, x: 28 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -28 }}
+                transition={{ duration: 0.24 }}
+                className="px-4 pt-6 pb-6"
+              >
+                <div className="mb-5">
+                  <h2 className="font-serif text-[22px] text-ink">{exportData[selectedCountry].label}</h2>
+                  <p className="text-[13px] text-ink-soft mt-1">Select a product category</p>
+                </div>
+                <div className="flex flex-col gap-2.5">
+                  {(Object.entries(exportData[selectedCountry].categories) as [string, Category][])
+                    .sort(([a], [b]) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+                    .map(([id, cat], i) => {
+                      const Icon = cat.icon as LucideIcon;
+                      return (
+                        <motion.button
+                          key={id}
+                          type="button"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.04 }}
+                          onClick={() => { setSelectedCategory(id); setLevel(3); }}
+                          className="flex items-center gap-4 bg-white rounded-2xl border border-border px-4 py-3.5 active:scale-[0.98] transition-transform shadow-sm text-left touch-manipulation"
+                        >
+                          <div className="w-11 h-11 shrink-0 rounded-full border border-border flex items-center justify-center bg-bg">
+                            <Icon className="w-5 h-5" strokeWidth={1.5} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[14px] font-medium tracking-tight">{cat.label}</div>
+                            <div className="text-[12px] text-ink-soft mt-0.5">
+                              {cat.companies.length} {cat.companies.length === 1 ? 'Company' : 'Companies'}
+                            </div>
+                          </div>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 shrink-0 text-ink-faint">
+                            <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </motion.button>
+                      );
+                    })}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Level 3 — Companies list */}
+            {level === 3 && selectedCountry && selectedCategory && (
+              <motion.div
+                key="m3"
+                initial={{ opacity: 0, x: 28 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -28 }}
+                transition={{ duration: 0.24 }}
+                className="px-4 pt-6 pb-6"
+              >
+                <div className="mb-5">
+                  <div className="text-[11px] font-medium uppercase tracking-widest text-ink-soft mb-1">
+                    {exportData[selectedCountry].label}
+                  </div>
+                  <h2 className="font-serif text-[22px] text-ink">
+                    {exportData[selectedCountry].categories[selectedCategory].label}
+                  </h2>
+                </div>
+                <div className="flex flex-col gap-2.5">
+                  {exportData[selectedCountry].categories[selectedCategory].companies.map((comp, i) => (
+                    <motion.a
+                      key={comp.name}
+                      href={comp.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      className="flex items-center gap-4 bg-white rounded-2xl border border-border px-4 py-3.5 active:scale-[0.98] transition-transform shadow-sm touch-manipulation"
+                    >
+                      <div className="w-11 h-11 shrink-0 rounded-full border border-border flex items-center justify-center bg-bg">
+                        <span className="font-serif text-lg">{comp.initial}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[14px] font-semibold tracking-tight">{comp.name}</div>
+                        <div className="text-[12px] text-ink-soft mt-0.5 truncate">{comp.tag}</div>
+                      </div>
+                      <div className="shrink-0 w-9 h-9 rounded-full bg-ink/5 flex items-center justify-center text-ink-soft">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4">
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M15 3h6v6M10 14L21 3" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                    </motion.a>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+          </AnimatePresence>
+        </div>
+
+        {/* Mobile — bottom back bar */}
+        <AnimatePresence>
+          {level > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 24 }}
+              transition={{ duration: 0.22 }}
+              className="shrink-0 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom,0px))] border-t border-border/50 bg-bg/95 backdrop-blur-sm"
+            >
+              <button
+                type="button"
+                onClick={handleBack}
+                className="w-full flex items-center justify-center gap-2.5 bg-ink text-white py-3.5 rounded-full text-[15px] font-medium tracking-tight active:scale-95 transition-transform shadow-md touch-manipulation"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
+
+      {/* ===== DESKTOP VIEW (hidden on mobile) ===== */}
+      <main ref={canvasRef} className="hidden sm:block flex-1 min-h-0 relative overflow-hidden bg-bg">
         <div
           ref={viewportRef}
           className="absolute inset-0 z-0 overflow-hidden overscroll-none touch-none"
