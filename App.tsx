@@ -149,7 +149,7 @@ const FlagIcon = ({ id, active }: { id: string, active: boolean }) => {
 };
 
 export default function App() {
-  const { exportData } = useExportData();
+  const { exportData, syncMode, remoteReady } = useExportData();
   const [level, setLevel] = useState<AppLevel>(0);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -390,6 +390,16 @@ export default function App() {
 
   return (
     <div className="min-h-[100dvh] min-h-screen bg-bg flex flex-col overflow-hidden select-none">
+      {syncMode === 'firebase' && !remoteReady ? (
+        <div
+          className="fixed top-0 left-0 right-0 z-[100] h-0.5 bg-ink/15 overflow-hidden"
+          role="status"
+          aria-live="polite"
+          aria-label="در حال همگام‌سازی با سرور"
+        >
+          <div className="h-full w-1/3 bg-ink/50 animate-pulse" />
+        </div>
+      ) : null}
       {/* Top Bar */}
       <header className="sticky top-0 z-50 min-h-[60px] sm:h-[72px] py-2 sm:py-0 blur-nav border-b border-black/5 px-3 sm:px-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-1 sm:gap-0 sm:justify-between relative">
         <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-3 shrink-0">

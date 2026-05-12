@@ -11,7 +11,17 @@ import {
   type SetStateAction,
 } from 'react';
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
-import { doc, getFirestore, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
+import {
+  doc,
+  getDoc,
+  getDocFromServer,
+  getFirestore,
+  increment,
+  onSnapshot,
+  serverTimestamp,
+  setDoc,
+  type DocumentSnapshot,
+} from 'firebase/firestore';
 import type { ExportNetworkJson } from './networkTypes.ts';
 import { hydrateNetwork, type ExportDataMap } from './hydrateNetwork.ts';
 import defaultNetworkJson from './default-network.json';
@@ -65,6 +75,12 @@ function loadFromStorage(): ExportNetworkJson {
   return structuredClone(defaultNetworkJson as ExportNetworkJson);
 }
 
+/** With Firebase, start from built-in default until Firestore snapshot arrives so every visitor follows the same cloud document, not a stale localStorage copy. */
+function getInitialNetworkJson(): ExportNetworkJson {
+  if (firebaseApp) return structuredClone(defaultNetworkJson as ExportNetworkJson);
+  return loadFromStorage();
+}
+
 type SyncMode = 'local' | 'firebase';
 
 export type AdminLoginResult = { ok: true } | { ok: false; message: string };
@@ -107,8 +123,10 @@ const ExportDataContext = createContext<Ctx | null>(null);
 
 export function ExportDataProvider({ children }: { children: ReactNode }) {
   const syncMode: SyncMode = firebaseApp ? 'firebase' : 'local';
-  const [networkJson, setNetworkJson] = useState<ExportNetworkJson>(loadFromStorage);
+  const [networkJson, setNetworkJson] = useState<ExportNetworkJson>(getInitialNetworkJson);
   const networkJsonRef = useRef(networkJson);
+  /** Monotonic Firestore `rev` last applied; -1 = none yet; 0 = legacy docs without `rev`. */
+  const lastAppliedRemoteRevRef = useRef(-1);
   useEffect(() => {
     networkJsonRef.current = networkJson;
   }, [networkJson]);
@@ -131,33 +149,79 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
     if (!firebaseApp) return;
     const db = getFirestore(firebaseApp);
     const ref = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
+
+    const applyRemoteSnap = (snap: DocumentSnapshot) => {
+      if (!snap.exists()) {
+        setRemoteReady(true);
+        return;
+      }
+      const data = snap.data() as { payload?: unknown; rev?: unknown };
+      const revRaw = data?.rev;
+      const revNum = typeof revRaw === 'number' && Number.isFinite(revRaw) ? revRaw : null;
+      if (revNum !== null && revNum <= lastAppliedRemoteRevRef.current) {
+        setRemoteReady(true);
+        return;
+      }
+      const payload = data?.payload;
+      if (typeof payload !== 'string') {
+        setRemoteReady(true);
+        return;
+      }
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(payload);
+      } catch {
+        setRemoteReady(true);
+        return;
+      }
+      if (!validateNetwork(parsed)) {
+        setRemoteReady(true);
+        return;
+      }
+      if (revNum === null) {
+        const incoming = JSON.stringify(parsed);
+        if (incoming === JSON.stringify(networkJsonRef.current)) {
+          setRemoteReady(true);
+          return;
+        }
+        lastAppliedRemoteRevRef.current = 0;
+        setNetworkJson(parsed);
+        setRemoteReady(true);
+        return;
+      }
+      lastAppliedRemoteRevRef.current = revNum;
+      if (JSON.stringify(parsed) !== JSON.stringify(networkJsonRef.current)) {
+        setNetworkJson(parsed);
+      }
+      setRemoteReady(true);
+    };
+
     const unsub = onSnapshot(
       ref,
-      (snap) => {
-        if (snap.exists()) {
-          const payload = snap.data()?.payload;
-          if (typeof payload === 'string') {
-            try {
-              const parsed: unknown = JSON.parse(payload);
-              if (validateNetwork(parsed)) {
-                const incoming = JSON.stringify(parsed);
-                const current = JSON.stringify(networkJsonRef.current);
-                if (incoming !== current) {
-                  setNetworkJson(parsed);
-                }
-              }
-            } catch {
-              /* ignore */
-            }
-          }
-        }
-        setRemoteReady(true);
-      },
+      applyRemoteSnap,
       () => {
         setRemoteReady(true);
       }
     );
-    return unsub;
+
+    let lastVisibilityFetchMs = 0;
+    const onVisibility = () => {
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - lastVisibilityFetchMs < 2500) return;
+      lastVisibilityFetchMs = now;
+      void getDocFromServer(ref)
+        .then(applyRemoteSnap)
+        .catch(() => {
+          void getDoc(ref).then(applyRemoteSnap);
+        });
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      unsub();
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, []);
 
   useEffect(() => {
@@ -174,7 +238,11 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
     const ref = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
     const jsonStr = JSON.stringify(networkJson);
     const t = window.setTimeout(() => {
-      void setDoc(ref, { payload: jsonStr, updatedAt: serverTimestamp() }, { merge: true }).catch((e) => {
+      void setDoc(
+        ref,
+        { payload: jsonStr, updatedAt: serverTimestamp(), rev: increment(1) },
+        { merge: true }
+      ).catch((e) => {
         console.error('[Firestore] Failed to save network', e);
       });
     }, CLOUD_SAVE_DEBOUNCE_MS);
