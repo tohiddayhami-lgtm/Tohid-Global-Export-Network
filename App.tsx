@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 import { Search, Menu, ArrowLeft, Globe, LocateFixed, Settings2, type LucideIcon } from 'lucide-react';
 import { useExportData } from './networkContext.tsx';
 import type { Category } from './hydrateNetwork.ts';
+import { LanguageSwitcher, useLocale } from './i18n/LocaleContext.tsx';
 
 const VIEW_MIN_ZOOM = 0.4;
 const VIEW_MAX_ZOOM = 3.5;
@@ -157,6 +158,7 @@ const FlagIcon = ({ id, active }: { id: string, active: boolean }) => {
 };
 
 export default function App() {
+  const { t } = useLocale();
   const { exportData, syncMode, remoteReady } = useExportData();
   const [level, setLevel] = useState<AppLevel>(0);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
@@ -428,12 +430,15 @@ export default function App() {
   };
 
   const breadcrumb = useMemo(() => {
-    if (level === 0) return 'Discover / Countries';
-    if (level === 1) return 'Discover / Countries';
-    if (level === 2) return `Discover / ${exportData[selectedCountry!].label}`;
-    if (level === 3) return `Discover / ${exportData[selectedCountry!].label} / ${exportData[selectedCountry!].categories[selectedCategory!].label}`;
-    return 'Discover';
-  }, [level, selectedCountry, selectedCategory, exportData]);
+    const d = t('breadcrumbDiscover');
+    const c = t('breadcrumbCountries');
+    if (level === 0) return `${d} / ${c}`;
+    if (level === 1) return `${d} / ${c}`;
+    if (level === 2) return `${d} / ${exportData[selectedCountry!].label}`;
+    if (level === 3)
+      return `${d} / ${exportData[selectedCountry!].label} / ${exportData[selectedCountry!].categories[selectedCategory!].label}`;
+    return d;
+  }, [level, selectedCountry, selectedCategory, exportData, t]);
 
   return (
     <div className="min-h-[100dvh] min-h-screen bg-bg flex flex-col overflow-hidden select-none">
@@ -442,7 +447,7 @@ export default function App() {
           className="fixed top-0 left-0 right-0 z-[100] h-0.5 bg-ink/15 overflow-hidden"
           role="status"
           aria-live="polite"
-          aria-label="Syncing with server"
+          aria-label={t('syncStatus')}
         >
           <div className="h-full w-1/3 bg-ink/50 animate-pulse" />
         </div>
@@ -461,14 +466,15 @@ export default function App() {
             <Link
               to="/admin"
               className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-hover active:scale-95 touch-manipulation text-ink"
-              aria-label="Admin"
+              aria-label={t('ariaAdmin')}
             >
               <Settings2 className="w-[18px] h-[18px]" strokeWidth={2} />
             </Link>
-            <button type="button" className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-hover active:scale-95 touch-manipulation" aria-label="Search">
+            <LanguageSwitcher className="shrink-0" />
+            <button type="button" className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-hover active:scale-95 touch-manipulation" aria-label={t('ariaSearch')}>
               <Search className="w-[18px] h-[18px]" strokeWidth={2} />
             </button>
-            <button type="button" className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-hover active:scale-95 touch-manipulation" aria-label="Menu">
+            <button type="button" className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-hover active:scale-95 touch-manipulation" aria-label={t('ariaMenu')}>
               <Menu className="w-[18px] h-[18px]" strokeWidth={2} />
             </button>
           </div>
@@ -484,17 +490,18 @@ export default function App() {
         </p>
 
         <div className="hidden sm:flex items-center gap-2 shrink-0">
+          <LanguageSwitcher />
           <Link
             to="/admin"
             className="w-9 h-9 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-colors hover:bg-hover active:scale-95 touch-manipulation text-ink"
-            aria-label="Admin"
+            aria-label={t('ariaAdmin')}
           >
             <Settings2 className="w-[18px] h-[18px]" strokeWidth={2} />
           </Link>
-          <button type="button" className="w-9 h-9 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-colors hover:bg-hover active:scale-95 touch-manipulation" aria-label="Search">
+          <button type="button" className="w-9 h-9 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-colors hover:bg-hover active:scale-95 touch-manipulation" aria-label={t('ariaSearch')}>
             <Search className="w-[18px] h-[18px]" strokeWidth={2} />
           </button>
-          <button type="button" className="w-9 h-9 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-colors hover:bg-hover active:scale-95 touch-manipulation" aria-label="Menu">
+          <button type="button" className="w-9 h-9 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-colors hover:bg-hover active:scale-95 touch-manipulation" aria-label={t('ariaMenu')}>
             <Menu className="w-[18px] h-[18px]" strokeWidth={2} />
           </button>
         </div>
@@ -505,7 +512,7 @@ export default function App() {
         <div
           ref={viewportRef}
           className="absolute inset-0 z-0 overflow-hidden overscroll-none touch-none"
-          aria-label="Mind map canvas"
+          aria-label={t('mindMapCanvas')}
         >
           <div
             className="absolute inset-0 dot-grid will-change-transform"
@@ -610,8 +617,8 @@ export default function App() {
                 className="relative z-40 pointer-events-auto touch-manipulation rounded-full border-[1.5px] border-ink flex flex-col items-center justify-center transition-all duration-500 ease-in-out shadow-sm"
               >
                 {level === 0 && <div className="absolute inset-0 rounded-full border border-ink pulse-ring pointer-events-none" />}
-                <span className={`font-serif leading-tight ${level >= 2 ? 'text-lg' : 'text-xl'}`}>Global</span>
-                <span className={`font-sans font-bold tracking-[0.2em] ${level >= 2 ? 'text-[8px]' : 'text-[10px]'} uppercase opacity-70`}>Export</span>
+                <span className={`font-serif leading-tight ${level >= 2 ? 'text-lg' : 'text-xl'}`}>{t('rootGlobal')}</span>
+                <span className={`font-sans font-bold tracking-[0.2em] ${level >= 2 ? 'text-[8px]' : 'text-[10px]'} uppercase opacity-70`}>{t('rootExport')}</span>
               </motion.button>
 
               {/* Level 1 Nodes (Countries) */}
@@ -652,7 +659,7 @@ export default function App() {
                       </motion.div>
                       <div className="flex flex-col items-center">
                         <span className="text-[14px] font-medium tracking-tight group-hover:text-ink">{c.label}</span>
-                        <span className="text-[11px] text-ink-soft">{Object.keys(c.categories).length} Markets</span>
+                        <span className="text-[11px] text-ink-soft">{t('marketsCount', { count: Object.keys(c.categories).length })}</span>
                       </div>
                     </motion.div>
                   )}
@@ -751,8 +758,8 @@ export default function App() {
               className="absolute bottom-20 sm:bottom-12 left-1/2 -translate-x-1/2 z-[55] flex flex-col sm:flex-row items-center gap-2 sm:gap-3 px-3 max-w-[95vw] pointer-events-none"
             >
               <div className="w-1.5 h-1.5 bg-ink rounded-full animate-pulse shrink-0" />
-              <span className="text-[11px] sm:text-[13px] text-center tracking-wide sm:tracking-widest uppercase font-medium text-ink/40 leading-snug">
-                Tap the center to explore
+              <span className="text-[11px] sm:text-[13px] text-center tracking-wide sm:tracking-widest font-medium text-ink/40 leading-snug">
+                {t('tapExplore')}
               </span>
             </motion.div>
           )}
@@ -767,7 +774,7 @@ export default function App() {
               className="absolute bottom-[max(4.5rem,env(safe-area-inset-bottom,0px)+3.25rem)] sm:bottom-[5.25rem] left-1/2 -translate-x-1/2 z-[55] max-w-[min(22rem,92vw)] px-3 pointer-events-none text-center"
             >
               <p className="text-[10px] sm:text-[11px] text-ink-soft/90 leading-snug">
-                Drag empty space to move the map · Scroll to zoom · Pinch on phone
+                {t('mapControlsHint')}
               </p>
             </motion.div>
           )}
@@ -776,8 +783,8 @@ export default function App() {
         {level >= 1 && (Math.abs(viewPan.x) > 3 || Math.abs(viewPan.y) > 3 || Math.abs(viewZoom - 1) > 0.06) && (
           <button
             type="button"
-            className="absolute left-3 bottom-[max(0.75rem,env(safe-area-inset-bottom,0px))] z-[60] w-10 h-10 rounded-full bg-white border border-border shadow-md flex items-center justify-center text-ink hover:bg-hover active:scale-95 touch-manipulation"
-            aria-label="Reset map view"
+            className="absolute start-3 bottom-[max(0.75rem,env(safe-area-inset-bottom,0px))] z-[60] w-10 h-10 rounded-full bg-white border border-border shadow-md flex items-center justify-center text-ink hover:bg-hover active:scale-95 touch-manipulation"
+            aria-label={t('resetViewAria')}
             onClick={() => {
               setViewPan({ x: 0, y: 0 });
               setViewZoom(1);
@@ -796,10 +803,10 @@ export default function App() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
               onClick={handleBack}
-              className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom,0px))] right-3 sm:bottom-10 sm:right-10 z-[60] bg-ink text-white pl-4 pr-5 py-2.5 sm:px-6 sm:py-3 rounded-full flex items-center gap-2 sm:gap-2.5 shadow-lg hover:pr-7 sm:hover:pr-8 transition-all active:scale-95 group touch-manipulation"
+              className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom,0px))] end-3 sm:bottom-10 sm:end-10 z-[60] bg-ink text-white ps-4 pe-5 py-2.5 sm:px-6 sm:py-3 rounded-full flex items-center gap-2 sm:gap-2.5 shadow-lg hover:pe-7 sm:hover:pe-8 transition-all active:scale-95 group touch-manipulation"
             >
-              <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-              <span className="text-[14px] font-medium tracking-tight">Back</span>
+              <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1 rtl:rotate-180 rtl:group-hover:translate-x-1" />
+              <span className="text-[14px] font-medium tracking-tight">{t('back')}</span>
             </motion.button>
           )}
         </AnimatePresence>
