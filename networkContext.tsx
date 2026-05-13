@@ -22,12 +22,16 @@ import {
   setDoc,
   type DocumentSnapshot,
 } from 'firebase/firestore';
-import type { ExportNetworkJson } from './networkTypes.ts';
+import type { ExportNetworkJson, RootNodeLines } from './networkTypes.ts';
 import { hydrateNetwork, type ExportDataMap } from './hydrateNetwork.ts';
 import defaultNetworkJson from './default-network.json';
 import { firebaseApp } from './firebase.ts';
 
 const STORAGE_KEY = 'gen_export_network_v1';
+const ROOT_UI_STORAGE_KEY = 'gen_export_network_ui_v1';
+
+/** Default center-node title on the map (overridden from admin / Firestore). */
+export const DEFAULT_ROOT_NODE_LINES: RootNodeLines = { line1: 'Global', line2: 'Export' };
 
 const FIRESTORE_COLLECTION = 'config';
 const FIRESTORE_DOC_ID = 'export_network';
@@ -56,6 +60,35 @@ export function validateNetwork(data: unknown): data is ExportNetworkJson {
     }
   }
   return true;
+}
+
+function loadRootUiFromStorage(): RootNodeLines {
+  try {
+    const raw = localStorage.getItem(ROOT_UI_STORAGE_KEY);
+    if (!raw) return { ...DEFAULT_ROOT_NODE_LINES };
+    const parsed: unknown = JSON.parse(raw);
+    if (!isRecord(parsed)) return { ...DEFAULT_ROOT_NODE_LINES };
+    const line1 = typeof parsed.line1 === 'string' ? parsed.line1.trim() : '';
+    const line2 = typeof parsed.line2 === 'string' ? parsed.line2.trim() : '';
+    return {
+      line1: line1 || DEFAULT_ROOT_NODE_LINES.line1,
+      line2: line2 || DEFAULT_ROOT_NODE_LINES.line2,
+    };
+  } catch {
+    return { ...DEFAULT_ROOT_NODE_LINES };
+  }
+}
+
+function readRootLinesFromFirestoreDoc(data: Record<string, unknown>): RootNodeLines | null {
+  const hasR1 = Object.prototype.hasOwnProperty.call(data, 'rootLine1');
+  const hasR2 = Object.prototype.hasOwnProperty.call(data, 'rootLine2');
+  if (!hasR1 && !hasR2) return null;
+  const line1 = typeof data.rootLine1 === 'string' ? data.rootLine1.trim() : '';
+  const line2 = typeof data.rootLine2 === 'string' ? data.rootLine2.trim() : '';
+  return {
+    line1: line1 || DEFAULT_ROOT_NODE_LINES.line1,
+    line2: line2 || DEFAULT_ROOT_NODE_LINES.line2,
+  };
 }
 
 function loadFromStorage(): ExportNetworkJson {
@@ -108,6 +141,8 @@ type Ctx = {
   exportData: ExportDataMap;
   networkJson: ExportNetworkJson;
   setNetworkJson: Dispatch<SetStateAction<ExportNetworkJson>>;
+  rootNodeLines: RootNodeLines;
+  setRootNodeLines: Dispatch<SetStateAction<RootNodeLines>>;
   adminOk: boolean;
   login: (user: string, pass: string) => Promise<AdminLoginResult>;
   logout: () => void;
@@ -122,6 +157,9 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
   const [networkJson, setNetworkJson] = useState<ExportNetworkJson>(getInitialNetworkJson);
   const networkJsonRef = useRef(networkJson);
   networkJsonRef.current = networkJson;
+  const [rootNodeLines, setRootNodeLines] = useState<RootNodeLines>(loadRootUiFromStorage);
+  const rootNodeLinesRef = useRef(rootNodeLines);
+  rootNodeLinesRef.current = rootNodeLines;
   /** Monotonic Firestore `rev` last applied; -1 = none yet; 0 = legacy docs without `rev`. */
   const lastAppliedRemoteRevRef = useRef(-1);
   const cloudSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -148,13 +186,15 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
         setRemoteReady(true);
         return;
       }
-      const data = snap.data() as { payload?: unknown; rev?: unknown };
+      const data = snap.data() as Record<string, unknown> & { payload?: unknown; rev?: unknown };
       const revRaw = data?.rev;
       const revNum = typeof revRaw === 'number' && Number.isFinite(revRaw) ? revRaw : null;
       if (revNum !== null && revNum <= lastAppliedRemoteRevRef.current) {
         setRemoteReady(true);
         return;
       }
+      const rootFromDoc = readRootLinesFromFirestoreDoc(data);
+      if (rootFromDoc) setRootNodeLines(rootFromDoc);
       const payload = data?.payload;
       if (typeof payload !== 'string') {
         setRemoteReady(true);
@@ -226,6 +266,14 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
   }, [networkJson]);
 
   useEffect(() => {
+    try {
+      localStorage.setItem(ROOT_UI_STORAGE_KEY, JSON.stringify(rootNodeLines));
+    } catch {
+      /* quota */
+    }
+  }, [rootNodeLines]);
+
+  useEffect(() => {
     if (!firebaseApp || !firebaseUser || !remoteReady) {
       flushPendingCloudSaveRef.current = () => {};
       return;
@@ -235,9 +283,16 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
 
     const runSave = () => {
       const payload = JSON.stringify(networkJsonRef.current);
+      const { line1, line2 } = rootNodeLinesRef.current;
       void setDoc(
         ref,
-        { payload, updatedAt: serverTimestamp(), rev: increment(1) },
+        {
+          payload,
+          rootLine1: line1,
+          rootLine2: line2,
+          updatedAt: serverTimestamp(),
+          rev: increment(1),
+        },
         { merge: true }
       ).catch((e) => {
         console.error('[Firestore] Failed to save network', e);
@@ -267,7 +322,7 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
       flushIfPending();
       flushPendingCloudSaveRef.current = () => {};
     };
-  }, [networkJson, firebaseUser, remoteReady]);
+  }, [networkJson, rootNodeLines, firebaseUser, remoteReady]);
 
   const exportData = useMemo(() => hydrateNetwork(networkJson), [networkJson]);
 
@@ -301,13 +356,15 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
       exportData,
       networkJson,
       setNetworkJson,
+      rootNodeLines,
+      setRootNodeLines,
       adminOk,
       login,
       logout,
       syncMode,
       remoteReady,
     }),
-    [exportData, networkJson, adminOk, login, logout, syncMode, remoteReady]
+    [exportData, networkJson, rootNodeLines, adminOk, login, logout, syncMode, remoteReady]
   );
 
   return <ExportDataContext.Provider value={value}>{children}</ExportDataContext.Provider>;

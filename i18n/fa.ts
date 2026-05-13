@@ -8,8 +8,6 @@ export const fa = {
   breadcrumbDiscover: 'کشف',
   breadcrumbCountries: 'کشورها',
   mindMapCanvas: 'بوم نقشه ذهنی',
-  rootGlobal: 'جهانی',
-  rootExport: 'صادرات',
   marketsCount: '{{count}} بازار',
   tapExplore: 'مرکز را لمس کنید تا کاوش کنید',
   mapControlsHint: 'فضای خالی را بکشید تا جابه‌جا شود · اسکرول برای زوم · روی موبایل دو انگشتی',
@@ -24,7 +22,6 @@ export const fa = {
   invalidDuplicateId: 'شناسه نامعتبر یا تکراری.',
   confirmDeleteCountry: 'کشور «{{id}}» حذف شود؟',
   promptCategoryId: 'شناسه دسته (اسلاگ):',
-  invalidDuplicateCategory: 'شناسه دسته نامعتبر یا تکراری.',
   confirmDeleteCategory: 'دسته «{{id}}» حذف شود؟',
   importOk: 'وارد شد.',
   invalidJsonFile: 'فایل JSON نامعتبر.',
@@ -62,4 +59,9 @@ export const fa = {
   openUrlNewTabTitle: 'باز کردن لینک در تب جدید',
   openUrlAria: 'باز کردن نشانی شرکت در تب جدید',
   defaultCategoryLabel: 'دسته جدید',
+
+  rootMapTitleSection: 'عنوان مرکز نقشه',
+  rootMapTitleLine1: 'خط بالا (مثلاً Global)',
+  rootMapTitleLine2: 'خط پایین (مثلاً Export)',
+  rootMapTitleHint: 'روی نقشهٔ اصلی نمایش داده می‌شود. با Firebase همراه با دادهٔ شبکه ذخیره می‌شود؛ بدون Firebase فقط در همین مرورگر ذخیره می‌شود.',
 } satisfies Record<MessageKey, string>;

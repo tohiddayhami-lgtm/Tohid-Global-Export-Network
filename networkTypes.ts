@@ -1,3 +1,9 @@
+/** Two-line label on the root node of the map (editable in admin, synced to Firestore when configured). */
+export interface RootNodeLines {
+  line1: string;
+  line2: string;
+}
+
 export interface CompanyJson {
   name: string;
   tag: string;

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { LogOut, Plus, Save, Trash2, Upload, Download, RotateCcw, ExternalLink } from 'lucide-react';
 import type { CategoryJson, CompanyJson, CountryJson } from './networkTypes.ts';
 import { ICON_KEYS } from './iconRegistry.ts';
-import { defaultNetworkClone, useExportData, validateNetwork } from './networkContext.tsx';
+import { defaultNetworkClone, DEFAULT_ROOT_NODE_LINES, useExportData, validateNetwork } from './networkContext.tsx';
 import { LanguageSwitcher, useLocale } from './i18n/LocaleContext.tsx';
 
 function openCompanyUrlInNewTab(raw: string, invalidMessage: string) {
@@ -71,7 +71,8 @@ function emptyCountry(id: string, defaultCategoryLabel: string): CountryJson {
 
 export default function AdminPanel() {
   const { t } = useLocale();
-  const { adminOk, login, logout, networkJson, setNetworkJson, syncMode } = useExportData();
+  const { adminOk, login, logout, networkJson, setNetworkJson, syncMode, rootNodeLines, setRootNodeLines } =
+    useExportData();
   const [user, setUser] = useState('');
   const [pass, setPass] = useState('');
   const [err, setErr] = useState('');
@@ -287,6 +288,7 @@ export default function AdminPanel() {
     if (!window.confirm(t('confirmReset'))) return;
     const d = defaultNetworkClone();
     setNetworkJson(d);
+    setRootNodeLines({ ...DEFAULT_ROOT_NODE_LINES });
     setSelCountry(Object.keys(d)[0] ?? '');
     setSelCat('');
   };
@@ -413,8 +415,34 @@ export default function AdminPanel() {
           </ul>
         </aside>
 
-        {country && (
-          <div className="space-y-6 min-w-0">
+        <div className="space-y-6 min-w-0">
+          <section className="rounded-xl border border-border bg-white p-4 space-y-3">
+            <h2 className="font-medium">{t('rootMapTitleSection')}</h2>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <label className="text-xs">
+                <span className="text-ink-soft">{t('rootMapTitleLine1')}</span>
+                <input
+                  className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
+                  value={rootNodeLines.line1}
+                  onChange={(e) => setRootNodeLines((prev) => ({ ...prev, line1: e.target.value }))}
+                  maxLength={80}
+                />
+              </label>
+              <label className="text-xs">
+                <span className="text-ink-soft">{t('rootMapTitleLine2')}</span>
+                <input
+                  className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
+                  value={rootNodeLines.line2}
+                  onChange={(e) => setRootNodeLines((prev) => ({ ...prev, line2: e.target.value }))}
+                  maxLength={80}
+                />
+              </label>
+            </div>
+            <p className="text-[11px] text-ink-soft leading-snug">{t('rootMapTitleHint')}</p>
+          </section>
+
+          {country && (
+            <>
             <section className="rounded-xl border border-border bg-white p-4 space-y-3">
               <div className="flex justify-between items-center">
                 <h2 className="font-medium">{t('countrySection')}</h2>
@@ -617,8 +645,9 @@ export default function AdminPanel() {
                 </div>
               </section>
             )}
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

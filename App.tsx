@@ -159,7 +159,7 @@ const FlagIcon = ({ id, active }: { id: string, active: boolean }) => {
 
 export default function App() {
   const { t } = useLocale();
-  const { exportData, syncMode, remoteReady } = useExportData();
+  const { exportData, syncMode, remoteReady, rootNodeLines } = useExportData();
   const [level, setLevel] = useState<AppLevel>(0);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -617,8 +617,8 @@ export default function App() {
                 className="relative z-40 pointer-events-auto touch-manipulation rounded-full border-[1.5px] border-ink flex flex-col items-center justify-center transition-all duration-500 ease-in-out shadow-sm"
               >
                 {level === 0 && <div className="absolute inset-0 rounded-full border border-ink pulse-ring pointer-events-none" />}
-                <span className={`font-serif leading-tight ${level >= 2 ? 'text-lg' : 'text-xl'}`}>{t('rootGlobal')}</span>
-                <span className={`font-sans font-bold tracking-[0.2em] ${level >= 2 ? 'text-[8px]' : 'text-[10px]'} uppercase opacity-70`}>{t('rootExport')}</span>
+                <span className={`font-serif leading-tight ${level >= 2 ? 'text-lg' : 'text-xl'}`}>{rootNodeLines.line1}</span>
+                <span className={`font-sans font-bold tracking-[0.12em] ${level >= 2 ? 'text-[8px]' : 'text-[10px]'} opacity-70`}>{rootNodeLines.line2}</span>
               </motion.button>
 
               {/* Level 1 Nodes (Countries) */}

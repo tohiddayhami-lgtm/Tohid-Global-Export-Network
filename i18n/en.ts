@@ -7,8 +7,6 @@ export const en = {
   breadcrumbDiscover: 'Discover',
   breadcrumbCountries: 'Countries',
   mindMapCanvas: 'Mind map canvas',
-  rootGlobal: 'Global',
-  rootExport: 'Export',
   marketsCount: '{{count}} Markets',
   tapExplore: 'Tap the center to explore',
   mapControlsHint: 'Drag empty space to move the map · Scroll to zoom · Pinch on phone',
@@ -24,7 +22,6 @@ export const en = {
   invalidDuplicateId: 'Invalid or duplicate id.',
   confirmDeleteCountry: 'Delete country "{{id}}"?',
   promptCategoryId: 'Category id (slug):',
-  invalidDuplicateCategory: 'Invalid or duplicate category id.',
   confirmDeleteCategory: 'Delete category "{{id}}"?',
   importOk: 'Imported.',
   invalidJsonFile: 'Invalid JSON file.',
@@ -62,6 +59,11 @@ export const en = {
   openUrlNewTabTitle: 'Open link in new tab',
   openUrlAria: 'Open company URL in new tab',
   defaultCategoryLabel: 'New category',
+
+  rootMapTitleSection: 'Map center title',
+  rootMapTitleLine1: 'Top line (e.g. Global)',
+  rootMapTitleLine2: 'Bottom line (e.g. Export)',
+  rootMapTitleHint: 'Shown on the home map. Saves to the cloud when you use Firebase (same debounce as network data), and to this browser otherwise.',
 } as const;
 
 export type MessageKey = keyof typeof en;
