@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type ChangeEventHandler, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ChangeEventHandler, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { LogOut, Plus, Save, Trash2, Upload, Download, RotateCcw, ExternalLink } from 'lucide-react';
 import type { CategoryJson, CompanyJson, CountryJson } from './networkTypes.ts';
@@ -21,13 +21,34 @@ function openCompanyUrlInNewTab(raw: string, invalidMessage: string) {
   }
 }
 
-function slugify(s: string) {
-  return s
+/** Slug for object keys: letters in any script, numbers, underscore, hyphen (Unicode-aware). */
+function makeSlugBase(raw: string, fallbackPrefix: string): string {
+  const t = raw
     .trim()
-    .toLowerCase()
+    .normalize('NFKC')
     .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-]/g, '')
-    .slice(0, 48);
+    .toLowerCase();
+  const cleaned = t
+    .replace(/[^\p{L}\p{N}_-]+/gu, '')
+    .replace(/-+/g, '-')
+    .replace(/^[-_]+|[-_]+$/g, '')
+    .slice(0, 64);
+  return cleaned || `${fallbackPrefix}-${Date.now().toString(36)}`;
+}
+
+function uniqueSlug(raw: string, existingKeys: readonly string[], fallbackPrefix: string): string {
+  const existing = new Set(existingKeys);
+  const base = makeSlugBase(raw, fallbackPrefix);
+  let slug = base;
+  let n = 0;
+  while (existing.has(slug)) {
+    n += 1;
+    slug = `${base}-${n}`;
+    if (slug.length > 96) {
+      slug = `${fallbackPrefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    }
+  }
+  return slug;
 }
 
 function emptyCompany(): CompanyJson {
@@ -58,8 +79,26 @@ export default function AdminPanel() {
   const [selCountry, setSelCountry] = useState<string>(() => countryIds[0] ?? '');
   const [selCat, setSelCat] = useState<string>('');
 
-  const country = selCountry ? networkJson[selCountry] : undefined;
+  const country = selCountry && networkJson[selCountry] ? networkJson[selCountry] : undefined;
   const catKeys = useMemo(() => (country ? Object.keys(country.categories) : []), [country]);
+
+  /** After refresh or when Firestore replaces data, keep selection aligned with real keys. */
+  useEffect(() => {
+    const ids = Object.keys(networkJson);
+    if (ids.length === 0) {
+      setSelCountry('');
+      setSelCat('');
+      return;
+    }
+    if (!selCountry || !networkJson[selCountry]) {
+      setSelCountry(ids[0]!);
+      setSelCat('');
+      return;
+    }
+    if (selCat && !networkJson[selCountry].categories[selCat]) {
+      setSelCat('');
+    }
+  }, [networkJson, selCountry, selCat]);
 
   const onLogin = async (e: FormEvent) => {
     e.preventDefault();
@@ -71,10 +110,14 @@ export default function AdminPanel() {
   const updateCountry = useCallback(
     (patch: Partial<CountryJson>) => {
       if (!selCountry) return;
-      setNetworkJson((prev) => ({
-        ...prev,
-        [selCountry]: { ...prev[selCountry], ...patch },
-      }));
+      setNetworkJson((prev) => {
+        const cur = prev[selCountry];
+        if (!cur) return prev;
+        return {
+          ...prev,
+          [selCountry]: { ...cur, ...patch },
+        };
+      });
     },
     [selCountry, setNetworkJson]
   );
@@ -84,6 +127,7 @@ export default function AdminPanel() {
       if (!selCountry) return;
       setNetworkJson((prev) => {
         const c = prev[selCountry];
+        if (!c?.categories[catId]) return prev;
         const next = { ...c.categories[catId], ...patch };
         return {
           ...prev,
@@ -100,11 +144,7 @@ export default function AdminPanel() {
   const addCountry = () => {
     const id = window.prompt(t('promptCountryId'), 'new-country');
     if (!id) return;
-    const slug = slugify(id);
-    if (!slug || networkJson[slug]) {
-      window.alert(t('invalidDuplicateId'));
-      return;
-    }
+    const slug = uniqueSlug(id, Object.keys(networkJson), 'country');
     setNetworkJson((p) => ({ ...p, [slug]: emptyCountry(slug, t('defaultCategoryLabel')) }));
     setSelCountry(slug);
     setSelCat('');
@@ -114,6 +154,7 @@ export default function AdminPanel() {
     if (!selCountry) return;
     if (!window.confirm(t('confirmDeleteCountry', { id: selCountry }))) return;
     setNetworkJson((p) => {
+      if (!p[selCountry]) return p;
       const { [selCountry]: _, ...rest } = p;
       return rest;
     });
@@ -123,21 +164,21 @@ export default function AdminPanel() {
   };
 
   const addCategory = () => {
-    if (!selCountry) return;
+    if (!selCountry || !country) return;
     const id = window.prompt(t('promptCategoryId'), 'new-category');
     if (!id) return;
-    const slug = slugify(id);
-    if (!slug || country!.categories[slug]) {
-      window.alert(t('invalidDuplicateCategory'));
-      return;
-    }
-    setNetworkJson((p) => ({
-      ...p,
-      [selCountry]: {
-        ...p[selCountry],
-        categories: { ...p[selCountry].categories, [slug]: emptyCategory(t('defaultCategoryLabel')) },
-      },
-    }));
+    const slug = uniqueSlug(id, Object.keys(country.categories), 'cat');
+    setNetworkJson((p) => {
+      const c = p[selCountry];
+      if (!c) return p;
+      return {
+        ...p,
+        [selCountry]: {
+          ...c,
+          categories: { ...c.categories, [slug]: emptyCategory(t('defaultCategoryLabel')) },
+        },
+      };
+    });
     setSelCat(slug);
   };
 
@@ -145,8 +186,10 @@ export default function AdminPanel() {
     if (!selCountry) return;
     if (!window.confirm(t('confirmDeleteCategory', { id: catId }))) return;
     setNetworkJson((p) => {
-      const { [catId]: _, ...cats } = p[selCountry].categories;
-      return { ...p, [selCountry]: { ...p[selCountry], categories: cats } };
+      const c = p[selCountry];
+      if (!c?.categories[catId]) return p;
+      const { [catId]: _, ...cats } = c.categories;
+      return { ...p, [selCountry]: { ...c, categories: cats } };
     });
     setSelCat('');
   };
@@ -154,13 +197,15 @@ export default function AdminPanel() {
   const addCompany = (catId: string) => {
     if (!selCountry) return;
     setNetworkJson((p) => {
-      const cat = p[selCountry].categories[catId];
+      const c = p[selCountry];
+      const cat = c?.categories[catId];
+      if (!c || !cat) return p;
       return {
         ...p,
         [selCountry]: {
-          ...p[selCountry],
+          ...c,
           categories: {
-            ...p[selCountry].categories,
+            ...c.categories,
             [catId]: { ...cat, companies: [...cat.companies, emptyCompany()] },
           },
         },
@@ -171,14 +216,16 @@ export default function AdminPanel() {
   const updateCompany = (catId: string, index: number, patch: Partial<CompanyJson>) => {
     if (!selCountry) return;
     setNetworkJson((p) => {
-      const cat = p[selCountry].categories[catId];
+      const c = p[selCountry];
+      const cat = c?.categories[catId];
+      if (!c || !cat) return p;
       const companies = cat.companies.map((row, i) => (i === index ? { ...row, ...patch } : row));
       return {
         ...p,
         [selCountry]: {
-          ...p[selCountry],
+          ...c,
           categories: {
-            ...p[selCountry].categories,
+            ...c.categories,
             [catId]: { ...cat, companies },
           },
         },
@@ -189,14 +236,16 @@ export default function AdminPanel() {
   const removeCompany = (catId: string, index: number) => {
     if (!selCountry) return;
     setNetworkJson((p) => {
-      const cat = p[selCountry].categories[catId];
+      const c = p[selCountry];
+      const cat = c?.categories[catId];
+      if (!c || !cat) return p;
       const companies = cat.companies.filter((_, i) => i !== index);
       return {
         ...p,
         [selCountry]: {
-          ...p[selCountry],
+          ...c,
           categories: {
-            ...p[selCountry].categories,
+            ...c.categories,
             [catId]: { ...cat, companies: companies.length ? companies : [emptyCompany()] },
           },
         },
@@ -222,6 +271,9 @@ export default function AdminPanel() {
         const data: unknown = JSON.parse(String(reader.result));
         if (!validateNetwork(data)) throw new Error('Invalid shape');
         setNetworkJson(data);
+        const ids = Object.keys(data);
+        setSelCountry(ids[0] ?? '');
+        setSelCat('');
         window.alert(t('importOk'));
       } catch {
         window.alert(t('invalidJsonFile'));
