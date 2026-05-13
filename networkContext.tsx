@@ -194,7 +194,12 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
         return;
       }
       const rootFromDoc = readRootLinesFromFirestoreDoc(data);
-      if (rootFromDoc) setRootNodeLines(rootFromDoc);
+      if (rootFromDoc) {
+        const cur = rootNodeLinesRef.current;
+        if (rootFromDoc.line1 !== cur.line1 || rootFromDoc.line2 !== cur.line2) {
+          setRootNodeLines(rootFromDoc);
+        }
+      }
       const payload = data?.payload;
       if (typeof payload !== 'string') {
         setRemoteReady(true);

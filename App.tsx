@@ -440,13 +440,11 @@ export default function App() {
     return category.companies.map((comp, i) => ({ ...comp, pos: positions[i] }));
   }, [selectedCountry, selectedCategory, categories, graphScale, scaleXY, exportData]);
 
-  // Coordinate mapper for SVG
-  const toSVG = (x: number, y: number) => {
-    return {
-      x: 500 + x,
-      y: 350 + y
-    };
-  };
+  // Coordinate mapper for SVG — canvas center is the origin for node positions
+  const toSVG = (x: number, y: number) => ({
+    x: canvasSize.width / 2 + x,
+    y: canvasSize.height / 2 + y,
+  });
 
   const rootLine1Display = useMemo(
     () => rootNodeLines.line1.trim() || DEFAULT_ROOT_NODE_LINES.line1,
@@ -568,8 +566,6 @@ export default function App() {
             {/* Background SVG Connections */}
             <svg
               className="absolute inset-0 z-[1] w-full h-full pointer-events-none [direction:ltr]"
-              viewBox="0 0 1000 700"
-              preserveAspectRatio="xMidYMid meet"
             >
               <defs>
                 <filter id="glow">
@@ -603,7 +599,7 @@ export default function App() {
                   const ca = scaleXY(country.anchor);
                   const start = toSVG(ca.x, ca.y);
                   const end = toSVG(cat.pos.x, cat.pos.y);
-                  const opacity = level === 2 ? 0.9 : 0.3;
+                  const opacity = level === 2 ? 0.9 : level === 3 && selectedCategory === cat.id ? 0.9 : 0.15;
                   return (
                     <motion.line
                       key={`line-l2-${cat.id}`}
@@ -612,6 +608,23 @@ export default function App() {
                       initial={{ pathLength: 0, opacity: 0 }}
                       animate={{ pathLength: level >= 2 ? 1 : 0, opacity: level >= 2 ? opacity : 0 }}
                       transition={{ duration: 0.6, ease: [0.65, 0, 0.35, 1], delay: 0.2 }}
+                    />
+                  );
+                })}
+
+                {/* Level 3 Lines (Category to Companies) */}
+                {level === 3 && selectedCategory && companies.map((comp, i) => {
+                  const catPos = categories.find((c) => c.id === selectedCategory)?.pos ?? { x: 0, y: 0 };
+                  const start = toSVG(catPos.x, catPos.y);
+                  const end = toSVG(comp.pos.x, comp.pos.y);
+                  return (
+                    <motion.line
+                      key={`line-l3-${i}`}
+                      x1={start.x} y1={start.y} x2={end.x} y2={end.y}
+                      stroke="currentColor" strokeWidth={1} strokeLinecap="round"
+                      initial={{ pathLength: 0, opacity: 0 }}
+                      animate={{ pathLength: 1, opacity: 0.5 }}
+                      transition={{ duration: 0.4, ease: [0.65, 0, 0.35, 1], delay: 0.15 + i * 0.04 }}
                     />
                   );
                 })}
