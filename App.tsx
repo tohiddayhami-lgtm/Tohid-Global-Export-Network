@@ -6,13 +6,15 @@
 import { useState, useCallback, useEffect, useMemo, useRef, type PointerEvent as ReactPointerEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { Search, Menu, ArrowLeft, Globe, LocateFixed, Settings2, type LucideIcon } from 'lucide-react';
-import { useExportData } from './networkContext.tsx';
+import { Search, Menu, ArrowLeft, Globe, LocateFixed, Settings2, Pencil, X, type LucideIcon } from 'lucide-react';
+import { DEFAULT_ROOT_NODE_LINES, useExportData } from './networkContext.tsx';
 import type { Category } from './hydrateNetwork.ts';
 import { LanguageSwitcher, useLocale } from './i18n/LocaleContext.tsx';
 
 const VIEW_MIN_ZOOM = 0.4;
 const VIEW_MAX_ZOOM = 3.5;
+/** Stable ordering for category keys so lines match nodes regardless of UI language / browser locale. */
+const CATEGORY_SORT_LOCALE = 'en';
 
 // --- Types ---
 type AppLevel = 0 | 1 | 2 | 3;
@@ -159,7 +161,11 @@ const FlagIcon = ({ id, active }: { id: string, active: boolean }) => {
 
 export default function App() {
   const { t } = useLocale();
-  const { exportData, syncMode, remoteReady, rootNodeLines } = useExportData();
+  const { exportData, syncMode, remoteReady, rootNodeLines, setRootNodeLines, adminOk } = useExportData();
+  const [rootTitleModalOpen, setRootTitleModalOpen] = useState(false);
+  const [rootTitleDraft, setRootTitleDraft] = useState({ line1: '', line2: '' });
+  const rootTitleModalOpenRef = useRef(false);
+  rootTitleModalOpenRef.current = rootTitleModalOpen;
   const [level, setLevel] = useState<AppLevel>(0);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -250,7 +256,9 @@ export default function App() {
           graphScale
         );
         const catIndex = Object.entries(exportData[selectedCountry!].categories)
-          .sort(([a], [b]) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+          .sort(([a], [b]) =>
+            a.localeCompare(b, CATEGORY_SORT_LOCALE, { sensitivity: 'base', numeric: true })
+          )
           .findIndex(([id]) => id === selectedCategory);
         const catPos = positions[catIndex] ?? anchor;
         const z = 1.4;
@@ -373,11 +381,22 @@ export default function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') handleBack();
+      if (e.key !== 'Escape') return;
+      if (rootTitleModalOpenRef.current) return;
+      handleBack();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleBack]);
+
+  useEffect(() => {
+    if (!rootTitleModalOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setRootTitleModalOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [rootTitleModalOpen]);
 
   const countries = useMemo(() => Object.values(exportData), [exportData]);
 
@@ -385,7 +404,7 @@ export default function App() {
     if (!selectedCountry) return [];
     const country = exportData[selectedCountry];
     const catList = (Object.entries(country.categories) as [string, Category][]).sort(([a], [b]) =>
-      a.localeCompare(b, undefined, { sensitivity: 'base' })
+      a.localeCompare(b, CATEGORY_SORT_LOCALE, { sensitivity: 'base', numeric: true })
     );
     const anchor = scaleXY(country.anchor);
     const positions = getCategoryLayoutPositions(catList.length, anchor, graphScale);
@@ -428,6 +447,23 @@ export default function App() {
       y: 350 + y
     };
   };
+
+  const rootLine1Display = useMemo(
+    () => rootNodeLines.line1.trim() || DEFAULT_ROOT_NODE_LINES.line1,
+    [rootNodeLines.line1]
+  );
+  const rootLine2Display = useMemo(
+    () => rootNodeLines.line2.trim() || DEFAULT_ROOT_NODE_LINES.line2,
+    [rootNodeLines.line2]
+  );
+
+  const openRootTitleModal = useCallback(() => {
+    setRootTitleDraft({
+      line1: rootNodeLines.line1.trim() || DEFAULT_ROOT_NODE_LINES.line1,
+      line2: rootNodeLines.line2.trim() || DEFAULT_ROOT_NODE_LINES.line2,
+    });
+    setRootTitleModalOpen(true);
+  }, [rootNodeLines.line1, rootNodeLines.line2]);
 
   const breadcrumb = useMemo(() => {
     const d = t('breadcrumbDiscover');
@@ -515,6 +551,7 @@ export default function App() {
           aria-label={t('mindMapCanvas')}
         >
           <div
+            dir="ltr"
             className="absolute inset-0 dot-grid will-change-transform"
             style={{
               transform: `translate(${viewPan.x}px, ${viewPan.y}px) scale(${viewZoom})`,
@@ -529,7 +566,11 @@ export default function App() {
               onPointerCancel={onPanHitPointerUp}
             />
             {/* Background SVG Connections */}
-            <svg className="absolute inset-0 z-[1] w-full h-full pointer-events-none" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet">
+            <svg
+              className="absolute inset-0 z-[1] w-full h-full pointer-events-none [direction:ltr]"
+              viewBox="0 0 1000 700"
+              preserveAspectRatio="xMidYMid meet"
+            >
               <defs>
                 <filter id="glow">
                   <feGaussianBlur stdDeviation="1" result="blur" />
@@ -595,31 +636,47 @@ export default function App() {
               )}
             </AnimatePresence>
 
-            {/* Nodes Layer */}
-            <div className="absolute inset-0 z-[3] flex items-center justify-center pointer-events-none">
+            {/* Nodes Layer — LTR so anchors match SVG math when the page is RTL (Persian) */}
+            <div className="absolute inset-0 z-[3] flex items-center justify-center pointer-events-none [direction:ltr]">
               {/* Root Node */}
-              <motion.button
-                type="button"
-                data-graph-node
-                onClick={() => {
-                  if (level === 0) setLevel(1);
-                  else handleBack();
-                }}
-                whileHover={{ scale: level >= 2 ? 1.05 : 1.02 }}
-                whileTap={{ scale: 0.95 }}
-                animate={{
-                  width: level >= 2 ? 80 : 140,
-                  height: level >= 2 ? 80 : 140,
-                  backgroundColor: level >= 1 ? "#1d1d1f" : "#ffffff",
-                  color: level >= 1 ? "#ffffff" : "#1d1d1f",
-                  opacity: (level >= 2) ? 0.5 : 1
-                }}
-                className="relative z-40 pointer-events-auto touch-manipulation rounded-full border-[1.5px] border-ink flex flex-col items-center justify-center transition-all duration-500 ease-in-out shadow-sm"
-              >
-                {level === 0 && <div className="absolute inset-0 rounded-full border border-ink pulse-ring pointer-events-none" />}
-                <span className={`font-serif leading-tight ${level >= 2 ? 'text-lg' : 'text-xl'}`}>{rootNodeLines.line1}</span>
-                <span className={`font-sans font-bold tracking-[0.12em] ${level >= 2 ? 'text-[8px]' : 'text-[10px]'} opacity-70`}>{rootNodeLines.line2}</span>
-              </motion.button>
+              <div className="relative z-40 pointer-events-none">
+                <motion.button
+                  type="button"
+                  data-graph-node
+                  onClick={() => {
+                    if (level === 0) setLevel(1);
+                    else handleBack();
+                  }}
+                  whileHover={{ scale: level >= 2 ? 1.05 : 1.02 }}
+                  whileTap={{ scale: 0.95 }}
+                  animate={{
+                    width: level >= 2 ? 80 : 140,
+                    height: level >= 2 ? 80 : 140,
+                    backgroundColor: level >= 1 ? "#1d1d1f" : "#ffffff",
+                    color: level >= 1 ? "#ffffff" : "#1d1d1f",
+                    opacity: (level >= 2) ? 0.5 : 1
+                  }}
+                  className="relative z-40 pointer-events-auto touch-manipulation rounded-full border-[1.5px] border-ink flex flex-col items-center justify-center transition-all duration-500 ease-in-out shadow-sm"
+                >
+                  {level === 0 && <div className="absolute inset-0 rounded-full border border-ink pulse-ring pointer-events-none" />}
+                  <span className={`font-serif leading-tight ${level >= 2 ? 'text-lg' : 'text-xl'}`}>{rootLine1Display}</span>
+                  <span className={`font-sans font-bold tracking-[0.12em] ${level >= 2 ? 'text-[8px]' : 'text-[10px]'} opacity-70`}>{rootLine2Display}</span>
+                </motion.button>
+                {adminOk && level === 0 ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      openRootTitleModal();
+                    }}
+                    className="absolute -top-1 -end-1 z-[45] flex h-8 w-8 items-center justify-center rounded-full border border-border bg-white text-ink shadow-md pointer-events-auto touch-manipulation hover:bg-hover active:scale-95"
+                    aria-label={t('editMapCenterTitle')}
+                  >
+                    <Pencil className="w-3.5 h-3.5" strokeWidth={2} />
+                  </button>
+                ) : null}
+              </div>
 
               {/* Level 1 Nodes (Countries) */}
               {countries.map((c, i) => (
@@ -809,6 +866,84 @@ export default function App() {
               <span className="text-[14px] font-medium tracking-tight">{t('back')}</span>
             </motion.button>
           )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {rootTitleModalOpen ? (
+            <motion.div
+              key="root-title-modal"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[200] flex items-center justify-center bg-black/45 p-4"
+              onPointerDown={(e) => {
+                if (e.target === e.currentTarget) setRootTitleModalOpen(false);
+              }}
+            >
+              <motion.div
+                initial={{ scale: 0.96, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.96, opacity: 0 }}
+                transition={{ type: 'spring', damping: 26, stiffness: 320 }}
+                className="relative w-full max-w-sm rounded-2xl border border-border bg-white p-6 shadow-xl"
+                dir="auto"
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  className="absolute end-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-ink-soft hover:bg-hover hover:text-ink"
+                  onClick={() => setRootTitleModalOpen(false)}
+                  aria-label={t('mapCenterTitleCancel')}
+                >
+                  <X className="w-4 h-4" strokeWidth={2} />
+                </button>
+                <h3 className="font-serif pe-10 text-lg text-ink">{t('editMapCenterTitle')}</h3>
+                <p className="mt-1 text-[11px] text-ink-soft leading-snug">{t('rootMapTitleHint')}</p>
+                <div className="mt-4 space-y-3">
+                  <label className="block text-xs">
+                    <span className="text-ink-soft">{t('rootMapTitleLine1')}</span>
+                    <input
+                      className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                      value={rootTitleDraft.line1}
+                      onChange={(e) => setRootTitleDraft((d) => ({ ...d, line1: e.target.value }))}
+                      maxLength={80}
+                    />
+                  </label>
+                  <label className="block text-xs">
+                    <span className="text-ink-soft">{t('rootMapTitleLine2')}</span>
+                    <input
+                      className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                      value={rootTitleDraft.line2}
+                      onChange={(e) => setRootTitleDraft((d) => ({ ...d, line2: e.target.value }))}
+                      maxLength={80}
+                    />
+                  </label>
+                </div>
+                <div className="mt-5 flex flex-wrap justify-end gap-2">
+                  <button
+                    type="button"
+                    className="rounded-full border border-border px-4 py-2 text-sm font-medium text-ink hover:bg-hover"
+                    onClick={() => setRootTitleModalOpen(false)}
+                  >
+                    {t('mapCenterTitleCancel')}
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-full bg-ink px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+                    onClick={() => {
+                      setRootNodeLines({
+                        line1: rootTitleDraft.line1.trim(),
+                        line2: rootTitleDraft.line2.trim(),
+                      });
+                      setRootTitleModalOpen(false);
+                    }}
+                  >
+                    {t('mapCenterTitleSave')}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          ) : null}
         </AnimatePresence>
       </main>
     </div>

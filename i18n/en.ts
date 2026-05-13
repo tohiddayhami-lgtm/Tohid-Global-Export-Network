@@ -16,6 +16,10 @@ export const en = {
   langEnglish: 'English',
   langPersian: 'فارسی',
 
+  editMapCenterTitle: 'Edit map center title',
+  mapCenterTitleSave: 'Save',
+  mapCenterTitleCancel: 'Cancel',
+
   // Admin
   invalidUrl: 'Invalid URL.',
   promptCountryId: 'Country id (slug, e.g. brazil):',

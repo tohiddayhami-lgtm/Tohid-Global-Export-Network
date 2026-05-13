@@ -17,6 +17,10 @@ export const fa = {
   langEnglish: 'English',
   langPersian: 'فارسی',
 
+  editMapCenterTitle: 'ویرایش عنوان مرکز نقشه',
+  mapCenterTitleSave: 'ذخیره',
+  mapCenterTitleCancel: 'انصراف',
+
   invalidUrl: 'آدرس معتبر نیست.',
   promptCountryId: 'شناسه کشور (اسلاگ، مثال brazil):',
   invalidDuplicateId: 'شناسه نامعتبر یا تکراری.',
