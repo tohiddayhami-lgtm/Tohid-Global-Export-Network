@@ -103,9 +103,8 @@ function loadFromStorage(): ExportNetworkJson {
   return structuredClone(defaultNetworkJson as ExportNetworkJson);
 }
 
-/** With Firebase, start from built-in default until Firestore snapshot arrives so every visitor follows the same cloud document, not a stale localStorage copy. */
+/** Last known good network JSON from this browser (used before Firebase first sync). */
 function getInitialNetworkJson(): ExportNetworkJson {
-  if (firebaseApp) return structuredClone(defaultNetworkJson as ExportNetworkJson);
   return loadFromStorage();
 }
 
@@ -234,13 +233,24 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
       setRemoteReady(true);
     };
 
-    const unsub = onSnapshot(
-      ref,
-      applyRemoteSnap,
-      () => {
-        setRemoteReady(true);
-      }
-    );
+    let cancelled = false;
+    void getDocFromServer(ref)
+      .then((snap) => {
+        if (!cancelled) applyRemoteSnap(snap);
+      })
+      .catch(() => {
+        void getDoc(ref)
+          .then((snap) => {
+            if (!cancelled) applyRemoteSnap(snap);
+          })
+          .catch(() => {
+            if (!cancelled) setRemoteReady(true);
+          });
+      });
+
+    const unsub = onSnapshot(ref, applyRemoteSnap, () => {
+      setRemoteReady(true);
+    });
 
     let lastVisibilityFetchMs = 0;
     const onVisibility = () => {
@@ -257,6 +267,7 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
     document.addEventListener('visibilitychange', onVisibility);
 
     return () => {
+      cancelled = true;
       unsub();
       document.removeEventListener('visibilitychange', onVisibility);
     };
@@ -264,19 +275,21 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
+      if (firebaseApp && !remoteReady) return;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(networkJson));
     } catch {
       /* quota */
     }
-  }, [networkJson]);
+  }, [networkJson, firebaseApp, remoteReady]);
 
   useEffect(() => {
     try {
+      if (firebaseApp && !remoteReady) return;
       localStorage.setItem(ROOT_UI_STORAGE_KEY, JSON.stringify(rootNodeLines));
     } catch {
       /* quota */
     }
-  }, [rootNodeLines]);
+  }, [rootNodeLines, firebaseApp, remoteReady]);
 
   useEffect(() => {
     if (!firebaseApp || !firebaseUser || !remoteReady) {
