@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ChangeEventHandler, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEventHandler, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { LogOut, Plus, Save, Trash2, Upload, Download, RotateCcw, ExternalLink } from 'lucide-react';
 import type { CategoryJson, CompanyJson, CountryJson } from './networkTypes.ts';
@@ -76,6 +76,19 @@ export default function AdminPanel() {
   const [user, setUser] = useState('');
   const [pass, setPass] = useState('');
   const [err, setErr] = useState('');
+
+  // Local draft for root title — prevents Firestore snapshots from resetting the input while typing
+  const [draftLine1, setDraftLine1] = useState(rootNodeLines.line1);
+  const [draftLine2, setDraftLine2] = useState(rootNodeLines.line2);
+  const isEditingRootRef = useRef(false);
+
+  useEffect(() => {
+    if (!isEditingRootRef.current) {
+      setDraftLine1(rootNodeLines.line1);
+      setDraftLine2(rootNodeLines.line2);
+    }
+  }, [rootNodeLines.line1, rootNodeLines.line2]);
+
   const countryIds = useMemo(() => Object.keys(networkJson), [networkJson]);
   const [selCountry, setSelCountry] = useState<string>(() => countryIds[0] ?? '');
   const [selCat, setSelCat] = useState<string>('');
@@ -423,8 +436,13 @@ export default function AdminPanel() {
                 <span className="text-ink-soft">{t('rootMapTitleLine1')}</span>
                 <input
                   className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
-                  value={rootNodeLines.line1}
-                  onChange={(e) => setRootNodeLines((prev) => ({ ...prev, line1: e.target.value }))}
+                  value={draftLine1}
+                  onFocus={() => { isEditingRootRef.current = true; }}
+                  onBlur={() => { isEditingRootRef.current = false; }}
+                  onChange={(e) => {
+                    setDraftLine1(e.target.value);
+                    setRootNodeLines((prev) => ({ ...prev, line1: e.target.value }));
+                  }}
                   maxLength={80}
                 />
               </label>
@@ -432,8 +450,13 @@ export default function AdminPanel() {
                 <span className="text-ink-soft">{t('rootMapTitleLine2')}</span>
                 <input
                   className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
-                  value={rootNodeLines.line2}
-                  onChange={(e) => setRootNodeLines((prev) => ({ ...prev, line2: e.target.value }))}
+                  value={draftLine2}
+                  onFocus={() => { isEditingRootRef.current = true; }}
+                  onBlur={() => { isEditingRootRef.current = false; }}
+                  onChange={(e) => {
+                    setDraftLine2(e.target.value);
+                    setRootNodeLines((prev) => ({ ...prev, line2: e.target.value }));
+                  }}
                   maxLength={80}
                 />
               </label>

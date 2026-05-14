@@ -577,18 +577,20 @@ export default function App() {
               <g className="connections">
                 {/* Level 1 Lines (Root to Countries) */}
                 {countries.map((c) => {
-                  const start = toSVG(0, 0);
+                  const s = toSVG(0, 0);
                   const a = scaleXY(c.anchor);
-                  const end = toSVG(a.x, a.y);
-                  const opacity = level === 1 ? 0.9 : (level === 2 ? 0.15 : 0.08);
+                  const e = toSVG(a.x, a.y);
+                  const mx = (s.x + e.x) / 2;
+                  const my = (s.y + e.y) / 2;
+                  const op = level === 1 ? 0.28 : level === 2 ? 0.06 : 0;
                   return (
-                    <motion.line
+                    <motion.path
                       key={`line-l1-${c.id}`}
-                      x1={start.x} y1={start.y} x2={end.x} y2={end.y}
-                      stroke="currentColor" strokeWidth={1.4} strokeLinecap="round"
+                      d={`M${s.x},${s.y} Q${mx},${my} ${e.x},${e.y}`}
+                      fill="none" stroke="currentColor" strokeWidth={0.7} strokeLinecap="round"
                       initial={{ pathLength: 0, opacity: 0 }}
-                      animate={{ pathLength: level >= 1 ? 1 : 0, opacity: level >= 1 ? opacity : 0 }}
-                      transition={{ duration: 0.7, ease: [0.65, 0, 0.35, 1], delay: 0.1 }}
+                      animate={{ pathLength: level >= 1 ? 1 : 0, opacity: level >= 1 ? op : 0 }}
+                      transition={{ duration: 0.6, ease: [0.65, 0, 0.35, 1], delay: 0.08 }}
                     />
                   );
                 })}
@@ -597,17 +599,20 @@ export default function App() {
                 {categories.map((cat) => {
                   const country = exportData[selectedCountry!];
                   const ca = scaleXY(country.anchor);
-                  const start = toSVG(ca.x, ca.y);
-                  const end = toSVG(cat.pos.x, cat.pos.y);
-                  const opacity = level === 2 ? 0.9 : level === 3 && selectedCategory === cat.id ? 0.9 : 0.15;
+                  const s = toSVG(ca.x, ca.y);
+                  const e = toSVG(cat.pos.x, cat.pos.y);
+                  const mx = (s.x + e.x) / 2;
+                  const my = (s.y + e.y) / 2;
+                  const isActive = level === 3 && selectedCategory === cat.id;
+                  const op = level === 2 ? 0.32 : isActive ? 0.4 : 0.06;
                   return (
-                    <motion.line
+                    <motion.path
                       key={`line-l2-${cat.id}`}
-                      x1={start.x} y1={start.y} x2={end.x} y2={end.y}
-                      stroke="currentColor" strokeWidth={1.4} strokeLinecap="round"
+                      d={`M${s.x},${s.y} Q${mx},${my} ${e.x},${e.y}`}
+                      fill="none" stroke="currentColor" strokeWidth={0.7} strokeLinecap="round"
                       initial={{ pathLength: 0, opacity: 0 }}
-                      animate={{ pathLength: level >= 2 ? 1 : 0, opacity: level >= 2 ? opacity : 0 }}
-                      transition={{ duration: 0.6, ease: [0.65, 0, 0.35, 1], delay: 0.2 }}
+                      animate={{ pathLength: level >= 2 ? 1 : 0, opacity: level >= 2 ? op : 0 }}
+                      transition={{ duration: 0.5, ease: [0.65, 0, 0.35, 1], delay: 0.15 }}
                     />
                   );
                 })}
@@ -615,16 +620,18 @@ export default function App() {
                 {/* Level 3 Lines (Category to Companies) */}
                 {level === 3 && selectedCategory && companies.map((comp, i) => {
                   const catPos = categories.find((c) => c.id === selectedCategory)?.pos ?? { x: 0, y: 0 };
-                  const start = toSVG(catPos.x, catPos.y);
-                  const end = toSVG(comp.pos.x, comp.pos.y);
+                  const s = toSVG(catPos.x, catPos.y);
+                  const e = toSVG(comp.pos.x, comp.pos.y);
+                  const mx = (s.x + e.x) / 2;
+                  const my = (s.y + e.y) / 2;
                   return (
-                    <motion.line
+                    <motion.path
                       key={`line-l3-${i}`}
-                      x1={start.x} y1={start.y} x2={end.x} y2={end.y}
-                      stroke="currentColor" strokeWidth={1} strokeLinecap="round"
+                      d={`M${s.x},${s.y} Q${mx},${my} ${e.x},${e.y}`}
+                      fill="none" stroke="currentColor" strokeWidth={0.6} strokeLinecap="round"
                       initial={{ pathLength: 0, opacity: 0 }}
-                      animate={{ pathLength: 1, opacity: 0.5 }}
-                      transition={{ duration: 0.4, ease: [0.65, 0, 0.35, 1], delay: 0.15 + i * 0.04 }}
+                      animate={{ pathLength: 1, opacity: 0.25 }}
+                      transition={{ duration: 0.35, ease: [0.65, 0, 0.35, 1], delay: 0.12 + i * 0.03 }}
                     />
                   );
                 })}
