@@ -77,12 +77,16 @@ export default function AdminPanel() {
   const [pass, setPass] = useState('');
   const [err, setErr] = useState('');
 
-  // Local draft — typing never touches context/Firestore, only blur does
+  // Local draft — completely isolated from context/Firestore until user clicks Save
   const [draftLine1, setDraftLine1] = useState(rootNodeLines.line1);
   const [draftLine2, setDraftLine2] = useState(rootNodeLines.line2);
 
-  useEffect(() => { setDraftLine1(rootNodeLines.line1); }, [rootNodeLines.line1]);
-  useEffect(() => { setDraftLine2(rootNodeLines.line2); }, [rootNodeLines.line2]);
+  const saveRootTitle = () => {
+    setRootNodeLines({
+      line1: draftLine1.trim() || DEFAULT_ROOT_NODE_LINES.line1,
+      line2: draftLine2.trim() || DEFAULT_ROOT_NODE_LINES.line2,
+    });
+  };
 
   const countryIds = useMemo(() => Object.keys(networkJson), [networkJson]);
   const [selCountry, setSelCountry] = useState<string>(() => countryIds[0] ?? '');
@@ -297,6 +301,8 @@ export default function AdminPanel() {
     const d = defaultNetworkClone();
     setNetworkJson(d);
     setRootNodeLines({ ...DEFAULT_ROOT_NODE_LINES });
+    setDraftLine1(DEFAULT_ROOT_NODE_LINES.line1);
+    setDraftLine2(DEFAULT_ROOT_NODE_LINES.line2);
     setSelCountry(Object.keys(d)[0] ?? '');
     setSelCat('');
   };
@@ -433,7 +439,6 @@ export default function AdminPanel() {
                   className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
                   value={draftLine1}
                   onChange={(e) => setDraftLine1(e.target.value)}
-                  onBlur={() => setRootNodeLines((prev) => ({ ...prev, line1: draftLine1 }))}
                   maxLength={80}
                 />
               </label>
@@ -443,12 +448,21 @@ export default function AdminPanel() {
                   className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
                   value={draftLine2}
                   onChange={(e) => setDraftLine2(e.target.value)}
-                  onBlur={() => setRootNodeLines((prev) => ({ ...prev, line2: draftLine2 }))}
                   maxLength={80}
                 />
               </label>
             </div>
-            <p className="text-[11px] text-ink-soft leading-snug">{t('rootMapTitleHint')}</p>
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] text-ink-soft leading-snug">{t('rootMapTitleHint')}</p>
+              <button
+                type="button"
+                onClick={saveRootTitle}
+                className="inline-flex items-center gap-1.5 rounded-full bg-ink text-white px-4 py-1.5 text-xs font-medium hover:opacity-90"
+              >
+                <Save className="w-3 h-3" />
+                {t('mapCenterTitleSave')}
+              </button>
+            </div>
           </section>
 
           {country && (
