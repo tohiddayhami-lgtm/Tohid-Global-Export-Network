@@ -71,7 +71,7 @@ function emptyCountry(id: string, defaultCategoryLabel: string): CountryJson {
 
 export default function AdminPanel() {
   const { t } = useLocale();
-  const { adminOk, login, logout, networkJson, setNetworkJson, syncMode, rootNodeLines, setRootNodeLines } =
+  const { adminOk, login, logout, networkJson, setNetworkJson, syncMode, rootNodeLines, setRootNodeLines, flushNetworkToCloudSoon } =
     useExportData();
   const [user, setUser] = useState('');
   const [pass, setPass] = useState('');
@@ -174,6 +174,7 @@ export default function AdminPanel() {
     const next = countryIds.filter((x) => x !== selCountry);
     setSelCountry(next[0] ?? '');
     setSelCat('');
+    flushNetworkToCloudSoon();
   };
 
   const addCategory = () => {
@@ -205,6 +206,7 @@ export default function AdminPanel() {
       return { ...p, [selCountry]: { ...c, categories: cats } };
     });
     setSelCat('');
+    flushNetworkToCloudSoon();
   };
 
   const addCompany = (catId: string) => {

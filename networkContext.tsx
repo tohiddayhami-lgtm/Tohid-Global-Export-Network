@@ -41,6 +41,25 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
+function readServerUpdatedAtMs(data: Record<string, unknown>): number {
+  const ua = data.updatedAt;
+  if (ua && typeof ua === 'object' && 'toMillis' in ua && typeof (ua as { toMillis: () => number }).toMillis === 'function') {
+    return (ua as { toMillis: () => number }).toMillis();
+  }
+  return 0;
+}
+
+/** Firestore may return rev as number, string, or long-like value. */
+function normalizeFirestoreRev(v: unknown): number | null {
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  if (typeof v === 'bigint') return Number(v);
+  if (typeof v === 'string' && v.trim() !== '') {
+    const n = Number(v.trim());
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
 export function validateNetwork(data: unknown): data is ExportNetworkJson {
   if (!isRecord(data)) return false;
   for (const [, c] of Object.entries(data)) {
@@ -142,6 +161,8 @@ type Ctx = {
   setNetworkJson: Dispatch<SetStateAction<ExportNetworkJson>>;
   rootNodeLines: RootNodeLines;
   setRootNodeLines: Dispatch<SetStateAction<RootNodeLines>>;
+  /** Push debounced Firestore save ASAP (e.g. after delete) so stale snapshots cannot win. */
+  flushNetworkToCloudSoon: () => void;
   adminOk: boolean;
   login: (user: string, pass: string) => Promise<AdminLoginResult>;
   logout: () => void;
@@ -159,8 +180,10 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
   const [rootNodeLines, setRootNodeLines] = useState<RootNodeLines>(loadRootUiFromStorage);
   const rootNodeLinesRef = useRef(rootNodeLines);
   rootNodeLinesRef.current = rootNodeLines;
-  /** Monotonic Firestore `rev` last applied; -1 = none yet; 0 = legacy docs without `rev`. */
+  /** Monotonic Firestore `rev` last applied; -1 = none yet; 0 = legacy docs without numeric rev. */
   const lastAppliedRemoteRevRef = useRef(-1);
+  /** When `rev` is missing, use `updatedAt` so old cached snapshots cannot re-apply deleted categories. */
+  const lastAppliedServerUpdatedAtMsRef = useRef(0);
   const cloudSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flushPendingCloudSaveRef = useRef<() => void>(() => {});
 
@@ -168,6 +191,12 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
   const [remoteReady, setRemoteReady] = useState(() => !firebaseApp);
 
   const adminOk = !!firebaseUser;
+
+  const flushNetworkToCloudSoon = useCallback(() => {
+    queueMicrotask(() => {
+      flushPendingCloudSaveRef.current();
+    });
+  }, []);
 
   useEffect(() => {
     if (!firebaseApp) return;
@@ -186,12 +215,18 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
         return;
       }
       const data = snap.data() as Record<string, unknown> & { payload?: unknown; rev?: unknown };
-      const revRaw = data?.rev;
-      const revNum = typeof revRaw === 'number' && Number.isFinite(revRaw) ? revRaw : null;
+      const revNum = normalizeFirestoreRev(data?.rev);
+      const updMs = readServerUpdatedAtMs(data);
+
       if (revNum !== null && revNum <= lastAppliedRemoteRevRef.current) {
         setRemoteReady(true);
         return;
       }
+      if (revNum === null && updMs > 0 && updMs <= lastAppliedServerUpdatedAtMsRef.current) {
+        setRemoteReady(true);
+        return;
+      }
+
       const rootFromDoc = readRootLinesFromFirestoreDoc(data);
       if (rootFromDoc) {
         const cur = rootNodeLinesRef.current;
@@ -215,19 +250,26 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
         setRemoteReady(true);
         return;
       }
+
+      const incoming = JSON.stringify(parsed);
+      const samePayload = incoming === JSON.stringify(networkJsonRef.current);
+
       if (revNum === null) {
-        const incoming = JSON.stringify(parsed);
-        if (incoming === JSON.stringify(networkJsonRef.current)) {
+        if (samePayload) {
+          if (updMs > 0) {
+            lastAppliedServerUpdatedAtMsRef.current = Math.max(lastAppliedServerUpdatedAtMsRef.current, updMs);
+          }
           setRemoteReady(true);
           return;
         }
         lastAppliedRemoteRevRef.current = 0;
-        setNetworkJson(structuredClone(parsed));
-        setRemoteReady(true);
-        return;
+      } else {
+        lastAppliedRemoteRevRef.current = revNum;
       }
-      lastAppliedRemoteRevRef.current = revNum;
-      if (JSON.stringify(parsed) !== JSON.stringify(networkJsonRef.current)) {
+      if (updMs > 0) {
+        lastAppliedServerUpdatedAtMsRef.current = Math.max(lastAppliedServerUpdatedAtMsRef.current, updMs);
+      }
+      if (!samePayload) {
         setNetworkJson(structuredClone(parsed));
       }
       setRemoteReady(true);
@@ -376,13 +418,14 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
       setNetworkJson,
       rootNodeLines,
       setRootNodeLines,
+      flushNetworkToCloudSoon,
       adminOk,
       login,
       logout,
       syncMode,
       remoteReady,
     }),
-    [exportData, networkJson, rootNodeLines, adminOk, login, logout, syncMode, remoteReady]
+    [exportData, networkJson, rootNodeLines, flushNetworkToCloudSoon, adminOk, login, logout, syncMode, remoteReady]
   );
 
   return <ExportDataContext.Provider value={value}>{children}</ExportDataContext.Provider>;
