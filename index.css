@@ -5,6 +5,21 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Fraunces", ui-serif, Georgia, serif;
 
+  /* ── Tohid Meta Port dark palette ── */
+  --color-port-bg: #07070f;
+  --color-port-surface: #0e0e1c;
+  --color-port-ink: #ddddf0;
+  --color-port-soft: #8080a8;
+  --color-port-faint: #3a3a58;
+  --color-port-border: #1e1e38;
+  --color-port-border-hi: #2e2e52;
+  --color-port-accent: #5cc8f0;
+  --color-port-accent-bg: #5cc8f014;
+  --color-port-accent-border: #5cc8f030;
+  --color-port-gold: #f0c840;
+  --color-port-gold-bg: #f0c84010;
+
+  /* ── Legacy palette (AdminPanel) ── */
   --color-bg: #fbfbfd;
   --color-ink: #1d1d1f;
   --color-ink-soft: #6e6e73;
@@ -38,6 +53,59 @@
   }
 }
 
+/* ── Port glass cards ── */
+.port-glass {
+  background: rgba(255, 255, 255, 0.025);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+}
+
+.port-glass-nav {
+  background: rgba(7, 7, 15, 0.88);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+}
+
+/* ── Ambient grid background ── */
+.port-grid {
+  background-image:
+    linear-gradient(rgba(92, 200, 240, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(92, 200, 240, 0.028) 1px, transparent 1px);
+  background-size: 72px 72px;
+}
+
+/* ── Card hover glow ── */
+.port-card-glow:hover {
+  box-shadow: 0 0 0 1px rgba(92, 200, 240, 0.25), 0 8px 32px rgba(92, 200, 240, 0.06);
+}
+
+.port-card-gold:hover {
+  box-shadow: 0 0 0 1px rgba(240, 200, 64, 0.25), 0 8px 32px rgba(240, 200, 64, 0.06);
+}
+
+/* ── Accent button glow ── */
+@keyframes accent-pulse {
+  0%, 100% { box-shadow: 0 0 28px rgba(92, 200, 240, 0.22); }
+  50%       { box-shadow: 0 0 48px rgba(92, 200, 240, 0.38); }
+}
+
+.port-enter-btn {
+  animation: accent-pulse 3s ease-in-out infinite;
+}
+
+/* ── Scan line sweep on hero ── */
+@keyframes scan-line {
+  0%   { transform: translateY(-100%); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translateY(200vh); opacity: 0; }
+}
+
+.port-scan {
+  animation: scan-line 6s linear infinite;
+}
+
+/* ── Legacy utilities (AdminPanel compatibility) ── */
 .dot-grid {
   background-image: radial-gradient(circle, rgba(0, 0, 0, 0.035) 1px, transparent 1px);
   background-size: 36px 36px;
@@ -50,7 +118,7 @@
 }
 
 @keyframes pulse-ring {
-  0% { transform: scale(1); opacity: 0.4; }
+  0%   { transform: scale(1);    opacity: 0.4; }
   100% { transform: scale(1.25); opacity: 0; }
 }
 

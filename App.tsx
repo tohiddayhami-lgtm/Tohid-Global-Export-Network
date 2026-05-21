@@ -3,139 +3,52 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useCallback, useEffect, useMemo, useRef, type PointerEvent as ReactPointerEvent } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { Search, Menu, ArrowLeft, Globe, LocateFixed, Settings2, Pencil, X, type LucideIcon } from 'lucide-react';
+import {
+  Search, ArrowRight, ArrowLeft, Globe, Settings2, Pencil, X, ExternalLink,
+  type LucideIcon,
+} from 'lucide-react';
 import { DEFAULT_ROOT_NODE_LINES, useExportData } from './networkContext.tsx';
-import type { Category } from './hydrateNetwork.ts';
 import { LanguageSwitcher, useLocale } from './i18n/LocaleContext.tsx';
 
-const VIEW_MIN_ZOOM = 0.4;
-const VIEW_MAX_ZOOM = 3.5;
-/** Stable ordering for category keys so lines match nodes regardless of UI language / browser locale. */
-const CATEGORY_SORT_LOCALE = 'en';
-
-// --- Types ---
 type AppLevel = 0 | 1 | 2 | 3;
 
-// --- Helpers ---
-/**
- * Places `count` nodes on an arc of radius `radius` around `pivot`.
- * The arc opens along `atan2(pivot.y, pivot.x)` (away from global center) unless `fromPoint`
- * is set; then it opens along `pivot - fromPoint` (e.g. outward from a category node when
- * `pivot` is a ring center offset past the category).
- */
-function getFanPositions(
-  count: number,
-  pivot: { x: number; y: number },
-  radius: number,
-  spreadDegrees: number,
-  fromPoint?: { x: number; y: number }
-) {
-  const anchorAngle = fromPoint
-    ? Math.atan2(pivot.y - fromPoint.y, pivot.x - fromPoint.x)
-    : Math.atan2(pivot.y, pivot.x);
-  const spread = (spreadDegrees * Math.PI) / 180;
-  const startAngle = anchorAngle - spread / 2;
-  const step = count > 1 ? spread / (count - 1) : 0;
+// ── Flag icons ─────────────────────────────────────────────────────────────
 
-  return Array.from({ length: count }, (_, i) => {
-    const angle = count === 1 ? anchorAngle : startAngle + step * i;
-    return {
-      x: pivot.x + Math.cos(angle) * radius,
-      y: pivot.y + Math.sin(angle) * radius
-    };
-  });
-}
-
-/**
- * Category nodes around a country: wider arc + larger radius as count grows;
- * splits into two staggered rings when there are many categories (e.g. 14) to reduce overlap.
- */
-function getCategoryLayoutPositions(
-  count: number,
-  anchor: { x: number; y: number },
-  graphScale: number
-): { x: number; y: number }[] {
-  if (count <= 0) return [];
-  if (count === 1) {
-    return getFanPositions(1, anchor, 215 * graphScale, 120);
-  }
-
-  const minSepDeg = count > 14 ? 21 : count > 10 ? 24 : count > 6 ? 28 : 32;
-  const maxSingleRing = 8;
-
-  if (count <= maxSingleRing) {
-    const spread = Math.min(352, Math.max(132, (count - 1) * minSepDeg + 40));
-    const r = graphScale * Math.min(465, Math.max(186, 200 + count * 12));
-    return getFanPositions(count, anchor, r, spread);
-  }
-
-  const nInner = Math.ceil(count / 2);
-  const nOuter = count - nInner;
-  const spreadIn = Math.min(328, Math.max(128, (nInner - 1) * minSepDeg + 36));
-  const spreadOut = Math.min(328, Math.max(128, (nOuter - 1) * minSepDeg + 36));
-  const rInner = graphScale * Math.min(410, 192 + nInner * 10);
-  const rOuter = graphScale * Math.min(485, 268 + nOuter * 11);
-  const inner = getFanPositions(nInner, anchor, rInner, spreadIn);
-  const outer = getFanPositions(nOuter, anchor, rOuter, spreadOut);
-  const offsetRad =
-    nInner > 1 ? ((spreadIn * Math.PI) / 180 / (nInner - 1)) * 0.5 : (14 * Math.PI) / 180;
-  const cos = Math.cos(offsetRad);
-  const sin = Math.sin(offsetRad);
-  const outerStaggered = outer.map((p) => {
-    const dx = p.x - anchor.x;
-    const dy = p.y - anchor.y;
-    return {
-      x: anchor.x + dx * cos - dy * sin,
-      y: anchor.y + dx * sin + dy * cos,
-    };
-  });
-  return [...inner, ...outerStaggered];
-}
-
-/** Layout reference (px) — graph coordinates in constants.ts assume ~this viewport; scale down on smaller screens. */
-const GRAPH_BASE_W = 880;
-const GRAPH_BASE_H = 600;
-
-// --- Components ---
-
-const FlagIcon = ({ id, active }: { id: string, active: boolean }) => {
-  const color = active ? 'white' : 'currentColor';
-
+const FlagIcon = ({ id, className = 'w-6 h-6' }: { id: string; className?: string }) => {
   switch (id) {
     case 'iran':
       return (
-        <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.2" className="w-6 h-6">
-          <path d="M4 8h16M4 12h16M4 16h16" />
-          <circle cx="12" cy="12" r="2" />
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" className={className}>
+          <path d="M4 8h16M4 12h16M4 16h16" /><circle cx="12" cy="12" r="2" />
         </svg>
       );
     case 'india':
       return (
-        <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.2" className="w-6 h-6">
-          <path d="M4 8h16M4 16h16" />
-          <circle cx="12" cy="12" r="2" />
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" className={className}>
+          <path d="M4 8h16M4 16h16" /><circle cx="12" cy="12" r="2" />
           <path d="M12 10v4M10 12h4" />
         </svg>
       );
     case 'turkey':
       return (
-        <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.2" className="w-6 h-6">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" className={className}>
           <path d="M12 8a4 4 0 1 0 0 8 4.2 4.2 0 0 1 0-8" />
-          <path d="M15 11l1 1-1 1M17 12l0.2 0" />
+          <path d="M15 11l1 1-1 1" />
         </svg>
       );
     case 'uae':
       return (
-        <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.2" className="w-6 h-6">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" className={className}>
           <path d="M4 6v12M4 6h4v12H4zM8 6h12M8 12h12M8 18h12" />
         </svg>
       );
     case 'oman':
       return (
-        <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3"
+          strokeLinecap="round" strokeLinejoin="round" className={className}>
           <path d="M4 5h5.25v14H4zM9.25 5H20v14H9.25z" />
           <path d="M6.1 10.2L6.5 14l.4-3.8" />
           <path d="M5.35 11.4l2.3 1.4M7.65 11.4l-2.3 1.4" />
@@ -143,829 +56,558 @@ const FlagIcon = ({ id, active }: { id: string, active: boolean }) => {
       );
     case 'china':
       return (
-        <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.2" className="w-6 h-6">
-          <path d="M6 7l1 2-1.5-1.5zM9 6l0.5 1M9 9l0.5-1M11 7l-1 0.5" />
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" className={className}>
           <path d="M4 4h16v16H4z" />
+          <path d="M8 9l.8 2.4-2-1.5h2.4l-2 1.5z" />
         </svg>
       );
     case 'vietnam':
       return (
-        <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.2" className="w-6 h-6">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" className={className}>
           <path d="M12 6l1.5 4.5H18l-3.5 2.5 1.5 4.5-4-2.5-4 2.5 1.5-4.5L5 10.5h4.5z" />
         </svg>
       );
     default:
-      return <Globe className="w-6 h-6" />;
+      return <Globe className={className} />;
   }
 };
+
+// Subtle accent gradient per country / terminal
+const TERMINAL_ACCENTS: Record<string, { from: string; badge: string }> = {
+  iran:    { from: '#10b98118', badge: '#10b981' },
+  india:   { from: '#f9731618', badge: '#f97316' },
+  turkey:  { from: '#ef444418', badge: '#ef4444' },
+  uae:     { from: '#eab30818', badge: '#eab308' },
+  oman:    { from: '#22c55e18', badge: '#22c55e' },
+  china:   { from: '#dc262618', badge: '#dc2626' },
+  vietnam: { from: '#f5913218', badge: '#f59132' },
+};
+
+const fade = { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } };
+const slideUp = (delay = 0) => ({
+  initial: { opacity: 0, y: 24 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1], delay } },
+  exit: { opacity: 0, y: -16, transition: { duration: 0.25 } },
+});
+
+// ── Component ───────────────────────────────────────────────────────────────
 
 export default function App() {
   const { t } = useLocale();
   const { exportData, syncMode, remoteReady, rootNodeLines, setRootNodeLines, adminOk } = useExportData();
-  const [rootTitleModalOpen, setRootTitleModalOpen] = useState(false);
-  const [rootTitleDraft, setRootTitleDraft] = useState({ line1: '', line2: '' });
-  const rootTitleModalOpenRef = useRef(false);
-  rootTitleModalOpenRef.current = rootTitleModalOpen;
+
   const [level, setLevel] = useState<AppLevel>(0);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [viewPan, setViewPan] = useState({ x: 0, y: 0 });
-  const [viewZoom, setViewZoom] = useState(1);
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const viewportRef = useRef<HTMLDivElement>(null);
-  const viewRef = useRef({ pan: { x: 0, y: 0 }, zoom: 1 });
-  const panDragRef = useRef({
-    active: false,
-    pointerId: -1,
-    startClientX: 0,
-    startClientY: 0,
-    originPanX: 0,
-    originPanY: 0,
-  });
-  const pinchRef = useRef<{ dist0: number; zoom0: number } | null>(null);
-  const [canvasSize, setCanvasSize] = useState(() => ({
-    width: typeof window !== 'undefined' ? window.innerWidth : GRAPH_BASE_W,
-    height: typeof window !== 'undefined' ? Math.max(320, window.innerHeight - 80) : GRAPH_BASE_H,
-  }));
 
-  const isMobile = canvasSize.width < 640;
+  const [titleModalOpen, setTitleModalOpen] = useState(false);
+  const [titleDraft, setTitleDraft] = useState({ line1: '', line2: '' });
+  const titleModalOpenRef = useRef(false);
+  titleModalOpenRef.current = titleModalOpen;
 
-  // On mobile, keep a higher minimum scale so nodes don't crowd together
-  const graphScale = useMemo(() => {
-    const w = canvasSize.width;
-    const h = canvasSize.height;
-    if (w < 1 || h < 1) return 1;
-    const raw = Math.min(1, w / GRAPH_BASE_W, h / GRAPH_BASE_H);
-    return w < 640 ? Math.max(0.68, raw) : raw;
-  }, [canvasSize.width, canvasSize.height]);
+  // ── Navigation ────────────────────────────────────────────────────────────
 
-  const scaleXY = useCallback(
-    (p: { x: number; y: number }) => ({ x: p.x * graphScale, y: p.y * graphScale }),
-    [graphScale]
-  );
-
-  // Update canvas size for layout scale + SVG mapping
-  useEffect(() => {
-    const el = canvasRef.current;
-    if (!el) return;
-    const updateSize = () => {
-      setCanvasSize({ width: el.clientWidth, height: el.clientHeight });
-    };
-    updateSize();
-    window.addEventListener('resize', updateSize);
-    const ro = new ResizeObserver(updateSize);
-    ro.observe(el);
-    return () => {
-      window.removeEventListener('resize', updateSize);
-      ro.disconnect();
-    };
-  }, []);
-
-  useEffect(() => {
-    viewRef.current = { pan: viewPan, zoom: viewZoom };
-  }, [viewPan, viewZoom]);
-
-  // Reset view on level 0; auto-center + zoom on mobile for other levels
-  useEffect(() => {
-    if (level === 0) {
-      setViewPan({ x: 0, y: 0 });
-      setViewZoom(1);
-      return;
-    }
-    if (!isMobile) return;
-
-    if (level === 1) {
-      // Zoom out slightly so all country nodes are comfortably visible
-      setViewPan({ x: 0, y: 0 });
-      setViewZoom(0.65);
-    } else if (level === 2 && selectedCountry) {
-      // Center on the selected country with a comfortable zoom
-      const anchor = scaleXY(exportData[selectedCountry].anchor);
-      const z = 1.15;
-      setViewZoom(z);
-      setViewPan({ x: -anchor.x * z, y: -anchor.y * z });
-    } else if (level === 3 && selectedCategory) {
-      // Center on the selected category node
-      const catEntry = Object.entries(exportData[selectedCountry!].categories)
-        .find(([id]) => id === selectedCategory);
-      if (catEntry) {
-        const anchor = scaleXY(exportData[selectedCountry!].anchor);
-        const positions = getCategoryLayoutPositions(
-          Object.keys(exportData[selectedCountry!].categories).length,
-          anchor,
-          graphScale
-        );
-        const catIndex = Object.entries(exportData[selectedCountry!].categories)
-          .sort(([a], [b]) =>
-            a.localeCompare(b, CATEGORY_SORT_LOCALE, { sensitivity: 'base', numeric: true })
-          )
-          .findIndex(([id]) => id === selectedCategory);
-        const catPos = positions[catIndex] ?? anchor;
-        const z = 1.4;
-        setViewZoom(z);
-        setViewPan({ x: -catPos.x * z, y: -catPos.y * z });
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [level, selectedCountry, selectedCategory, isMobile]);
-
-  const clampZoom = useCallback((z: number) => Math.min(VIEW_MAX_ZOOM, Math.max(VIEW_MIN_ZOOM, z)), []);
-
-  const onPanHitPointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return;
-    const d = panDragRef.current;
-    d.active = true;
-    d.pointerId = e.pointerId;
-    d.startClientX = e.clientX;
-    d.startClientY = e.clientY;
-    d.originPanX = viewPan.x;
-    d.originPanY = viewPan.y;
-    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
-  }, [viewPan.x, viewPan.y]);
-
-  const onPanHitPointerMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    const d = panDragRef.current;
-    if (!d.active || e.pointerId !== d.pointerId) return;
-    setViewPan({
-      x: d.originPanX + (e.clientX - d.startClientX),
-      y: d.originPanY + (e.clientY - d.startClientY),
-    });
-  }, []);
-
-  const onPanHitPointerUp = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    const d = panDragRef.current;
-    if (!d.active || e.pointerId !== d.pointerId) return;
-    d.active = false;
-    try {
-      (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId);
-    } catch {
-      /* noop */
-    }
-  }, []);
-
-  useEffect(() => {
-    const el = viewportRef.current;
-    if (!el) return;
-
-    const wheelHandler = (e: WheelEvent) => {
-      e.preventDefault();
-      const rect = el.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-      const sx = e.clientX - cx;
-      const sy = e.clientY - cy;
-      const { pan, zoom } = viewRef.current;
-      const wx = (sx - pan.x) / zoom;
-      const wy = (sy - pan.y) / zoom;
-      const factor = Math.exp(-e.deltaY * 0.0012);
-      const z2 = clampZoom(zoom * factor);
-      setViewZoom(z2);
-      setViewPan({ x: sx - wx * z2, y: sy - wy * z2 });
-    };
-
-    el.addEventListener('wheel', wheelHandler, { passive: false });
-
-    const touchDist = (t: TouchList) => {
-      const a = t[0];
-      const b = t[1];
-      const dx = a.clientX - b.clientX;
-      const dy = a.clientY - b.clientY;
-      return Math.hypot(dx, dy);
-    };
-
-    const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
-        pinchRef.current = { dist0: touchDist(e.touches), zoom0: viewRef.current.zoom };
-      }
-    };
-
-    const onTouchMove = (e: TouchEvent) => {
-      if (e.touches.length >= 2 && pinchRef.current) {
-        e.preventDefault();
-        const d = touchDist(e.touches);
-        if (pinchRef.current.dist0 < 1) return;
-        const z2 = clampZoom(pinchRef.current.zoom0 * (d / pinchRef.current.dist0));
-        setViewZoom(z2);
-      }
-    };
-
-    const onTouchEnd = (e: TouchEvent) => {
-      if (e.touches.length < 2) pinchRef.current = null;
-    };
-
-    el.addEventListener('touchstart', onTouchStart, { passive: true });
-    el.addEventListener('touchmove', onTouchMove, { passive: false });
-    el.addEventListener('touchend', onTouchEnd, { passive: true });
-    el.addEventListener('touchcancel', onTouchEnd, { passive: true });
-
-    return () => {
-      el.removeEventListener('wheel', wheelHandler);
-      el.removeEventListener('touchstart', onTouchStart);
-      el.removeEventListener('touchmove', onTouchMove);
-      el.removeEventListener('touchend', onTouchEnd);
-      el.removeEventListener('touchcancel', onTouchEnd);
-    };
-  }, [clampZoom]);
-
-  const handleBack = useCallback(() => {
-    if (level === 3) {
-      setLevel(2);
-      setSelectedCategory(null);
-    } else if (level === 2) {
-      setLevel(1);
-      setSelectedCountry(null);
-    } else if (level === 1) {
-      setLevel(0);
-    }
+  const goBack = useCallback(() => {
+    if (level === 3) { setLevel(2); setSelectedCategory(null); }
+    else if (level === 2) { setLevel(1); setSelectedCountry(null); }
+    else if (level === 1) { setLevel(0); }
   }, [level]);
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      if (rootTitleModalOpenRef.current) return;
-      handleBack();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleBack]);
-
-  useEffect(() => {
-    if (!rootTitleModalOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setRootTitleModalOpen(false);
+      if (e.key !== 'Escape') return;
+      if (titleModalOpenRef.current) { setTitleModalOpen(false); return; }
+      goBack();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [rootTitleModalOpen]);
+  }, [goBack]);
+
+  useEffect(() => { window.scrollTo(0, 0); }, [level]);
+
+  // ── Data ──────────────────────────────────────────────────────────────────
 
   const countries = useMemo(() => Object.values(exportData), [exportData]);
 
   const categories = useMemo(() => {
     if (!selectedCountry) return [];
-    const country = exportData[selectedCountry];
-    const catList = (Object.entries(country.categories) as [string, Category][]).sort(([a], [b]) =>
-      a.localeCompare(b, CATEGORY_SORT_LOCALE, { sensitivity: 'base', numeric: true })
-    );
-    const anchor = scaleXY(country.anchor);
-    const positions = getCategoryLayoutPositions(catList.length, anchor, graphScale);
-    return catList.map(([id, cat], i) => ({
-      id,
-      label: cat.label,
-      icon: cat.icon,
-      companies: cat.companies,
-      pos: positions[i],
-    }));
-  }, [selectedCountry, graphScale, scaleXY, exportData]);
+    return Object.entries(exportData[selectedCountry].categories)
+      .sort(([a], [b]) => a.localeCompare(b, 'en', { sensitivity: 'base', numeric: true }))
+      .map(([id, cat]) => ({ id, label: cat.label, icon: cat.icon, companies: cat.companies }));
+  }, [selectedCountry, exportData]);
 
   const companies = useMemo(() => {
     if (!selectedCountry || !selectedCategory) return [];
-    const category = exportData[selectedCountry].categories[selectedCategory];
-    const catPos = categories.find(c => c.id === selectedCategory)?.pos || { x: 0, y: 0 };
-    const countryPivot = scaleXY(exportData[selectedCountry].anchor);
-    const n = category.companies.length;
+    return exportData[selectedCountry].categories[selectedCategory].companies;
+  }, [selectedCountry, selectedCategory, exportData]);
 
-    const vx = catPos.x - countryPivot.x;
-    const vy = catPos.y - countryPivot.y;
-    const vlen = Math.hypot(vx, vy) || 1;
-    const ux = vx / vlen;
-    const uy = vy / vlen;
-
-    const ringGap = graphScale * 36;
-    const layoutPivot = { x: catPos.x + ux * ringGap, y: catPos.y + uy * ringGap };
-
-    const spreadDeg = Math.min(136, Math.max(96, 28 * n + 58));
-    const radius = graphScale * Math.min(340, Math.max(175, 62 + n * 36));
-
-    const positions = getFanPositions(n, layoutPivot, radius, spreadDeg, catPos);
-    return category.companies.map((comp, i) => ({ ...comp, pos: positions[i] }));
-  }, [selectedCountry, selectedCategory, categories, graphScale, scaleXY, exportData]);
-
-  // Coordinate mapper for SVG — canvas center is the origin for node positions
-  const toSVG = (x: number, y: number) => ({
-    x: canvasSize.width / 2 + x,
-    y: canvasSize.height / 2 + y,
-  });
-
-  const rootLine1Display = useMemo(
+  const rootLine1 = useMemo(
     () => rootNodeLines.line1.trim() || DEFAULT_ROOT_NODE_LINES.line1,
-    [rootNodeLines.line1]
+    [rootNodeLines.line1],
   );
-  const rootLine2Display = useMemo(
+  const rootLine2 = useMemo(
     () => rootNodeLines.line2.trim() || DEFAULT_ROOT_NODE_LINES.line2,
-    [rootNodeLines.line2]
+    [rootNodeLines.line2],
   );
 
-  const openRootTitleModal = useCallback(() => {
-    setRootTitleDraft({
-      line1: rootNodeLines.line1.trim() || DEFAULT_ROOT_NODE_LINES.line1,
-      line2: rootNodeLines.line2.trim() || DEFAULT_ROOT_NODE_LINES.line2,
-    });
-    setRootTitleModalOpen(true);
-  }, [rootNodeLines.line1, rootNodeLines.line2]);
+  const totalBooths = useMemo(
+    () => countries.reduce((n, c) => n + Object.keys(c.categories).length, 0),
+    [countries],
+  );
+  const totalVendors = useMemo(
+    () => countries.reduce(
+      (n, c) => n + Object.values(c.categories).reduce((m, cat) => m + cat.companies.length, 0), 0,
+    ),
+    [countries],
+  );
 
-  const breadcrumb = useMemo(() => {
-    const d = t('breadcrumbDiscover');
-    const c = t('breadcrumbCountries');
-    if (level === 0) return `${d} / ${c}`;
-    if (level === 1) return `${d} / ${c}`;
-    if (level === 2) return `${d} / ${exportData[selectedCountry!].label}`;
-    if (level === 3)
-      return `${d} / ${exportData[selectedCountry!].label} / ${exportData[selectedCountry!].categories[selectedCategory!].label}`;
-    return d;
-  }, [level, selectedCountry, selectedCategory, exportData, t]);
+  const openTitleModal = useCallback(() => {
+    setTitleDraft({ line1: rootLine1, line2: rootLine2 });
+    setTitleModalOpen(true);
+  }, [rootLine1, rootLine2]);
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-[100dvh] min-h-screen bg-bg flex flex-col overflow-hidden select-none">
-      {syncMode === 'firebase' && !remoteReady ? (
-        <div
-          className="fixed top-0 left-0 right-0 z-[100] h-0.5 bg-ink/15 overflow-hidden"
-          role="status"
-          aria-live="polite"
-          aria-label={t('syncStatus')}
-        >
-          <div className="h-full w-1/3 bg-ink/50 animate-pulse" />
+    <div className="min-h-[100dvh] bg-port-bg text-port-ink font-sans flex flex-col overflow-x-hidden select-none">
+
+      {/* Sync bar */}
+      {syncMode === 'firebase' && !remoteReady && (
+        <div className="fixed top-0 inset-x-0 z-[100] h-0.5 overflow-hidden">
+          <div className="h-full w-1/3 bg-port-accent/50 animate-pulse" />
         </div>
-      ) : null}
-      {/* Top Bar */}
-      <header className="sticky top-0 z-50 min-h-[60px] sm:h-[72px] py-2 sm:py-0 blur-nav border-b border-black/5 px-3 sm:px-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-1 sm:gap-0 sm:justify-between relative">
-        <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-3 shrink-0">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <div className="w-7 h-7 shrink-0 rounded-full bg-ink flex items-center justify-center">
-              <span className="text-white font-serif text-lg leading-none mt-0.5">G</span>
-            </div>
-            <span className="font-semibold text-[14px] sm:text-[15px] tracking-tight truncate max-w-[min(200px,52vw)] sm:max-w-none sm:hidden">Tohid Global Network</span>
-            <span className="font-semibold text-[15px] tracking-tight hidden sm:inline">Tohid Global Network</span>
-          </div>
-          <div className="flex items-center gap-2 sm:hidden shrink-0">
-            <Link
-              to="/admin"
-              className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-hover active:scale-95 touch-manipulation text-ink"
-              aria-label={t('ariaAdmin')}
-            >
-              <Settings2 className="w-[18px] h-[18px]" strokeWidth={2} />
-            </Link>
-            <LanguageSwitcher className="shrink-0" />
-            <button type="button" className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-hover active:scale-95 touch-manipulation" aria-label={t('ariaSearch')}>
-              <Search className="w-[18px] h-[18px]" strokeWidth={2} />
-            </button>
-            <button type="button" className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-hover active:scale-95 touch-manipulation" aria-label={t('ariaMenu')}>
-              <Menu className="w-[18px] h-[18px]" strokeWidth={2} />
-            </button>
-          </div>
+      )}
+
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-50 h-16 port-glass-nav border-b border-port-border px-4 sm:px-8 flex items-center justify-between gap-4">
+
+        {/* Left: Logo or Back */}
+        <div className="flex items-center gap-3 shrink-0">
+          <AnimatePresence mode="wait">
+            {level === 0 ? (
+              <motion.div key="logo" {...fade} className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full border border-port-accent/40 bg-port-accent-bg flex items-center justify-center shrink-0">
+                  <span className="font-serif text-port-accent text-base leading-none">T</span>
+                </div>
+                <span className="font-semibold text-[14px] tracking-tight hidden sm:block">
+                  Tohid Meta Port
+                </span>
+              </motion.div>
+            ) : (
+              <motion.button
+                key="back"
+                {...fade}
+                type="button"
+                onClick={goBack}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-port-border hover:border-port-border-hi hover:bg-port-surface transition-all group"
+              >
+                <ArrowLeft className="w-4 h-4 rtl:rotate-180 group-hover:-translate-x-0.5 transition-transform" />
+                <span className="text-sm font-medium">{t('back')}</span>
+              </motion.button>
+            )}
+          </AnimatePresence>
         </div>
 
-        <div className="hidden sm:block absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-[min(420px,46vw)] px-2">
-          <span className="text-ink-soft text-[12px] sm:text-[13px] font-medium tracking-tight line-clamp-1 block text-center">
-            {breadcrumb}
-          </span>
+        {/* Center: Breadcrumb */}
+        <div className="hidden sm:flex items-center gap-1.5 text-[12px] text-port-soft min-w-0 flex-1 justify-center">
+          <span className="text-port-ink font-medium shrink-0">Meta Port</span>
+          {level >= 1 && <span className="text-port-faint shrink-0">/</span>}
+          {level >= 1 && (
+            <span className="truncate shrink-0">
+              {level === 1 ? 'Terminals' : exportData[selectedCountry!]?.label}
+            </span>
+          )}
+          {level >= 2 && <span className="text-port-faint shrink-0">/</span>}
+          {level >= 2 && (
+            <span className="truncate">
+              {level === 2
+                ? 'Booths'
+                : exportData[selectedCountry!]?.categories[selectedCategory!]?.label}
+            </span>
+          )}
         </div>
-        <p className="sm:hidden text-ink-soft text-[11px] font-medium tracking-tight truncate px-1 text-center leading-snug">
-          {breadcrumb}
-        </p>
 
-        <div className="hidden sm:flex items-center gap-2 shrink-0">
+        {/* Right: Actions */}
+        <div className="flex items-center gap-1 shrink-0">
           <LanguageSwitcher />
           <Link
             to="/admin"
-            className="w-9 h-9 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-colors hover:bg-hover active:scale-95 touch-manipulation text-ink"
+            className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-port-surface border border-transparent hover:border-port-border transition-all text-port-soft hover:text-port-ink"
             aria-label={t('ariaAdmin')}
           >
-            <Settings2 className="w-[18px] h-[18px]" strokeWidth={2} />
+            <Settings2 className="w-4 h-4" strokeWidth={1.5} />
           </Link>
-          <button type="button" className="w-9 h-9 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-colors hover:bg-hover active:scale-95 touch-manipulation" aria-label={t('ariaSearch')}>
-            <Search className="w-[18px] h-[18px]" strokeWidth={2} />
-          </button>
-          <button type="button" className="w-9 h-9 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-colors hover:bg-hover active:scale-95 touch-manipulation" aria-label={t('ariaMenu')}>
-            <Menu className="w-[18px] h-[18px]" strokeWidth={2} />
+          <button
+            type="button"
+            className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-port-surface border border-transparent hover:border-port-border transition-all text-port-soft hover:text-port-ink"
+            aria-label={t('ariaSearch')}
+          >
+            <Search className="w-4 h-4" strokeWidth={1.5} />
           </button>
         </div>
       </header>
 
-      {/* Main Stage */}
-      <main ref={canvasRef} className="flex-1 min-h-0 relative overflow-hidden bg-bg">
-        <div
-          ref={viewportRef}
-          className="absolute inset-0 z-0 overflow-hidden overscroll-none touch-none"
-          aria-label={t('mindMapCanvas')}
-        >
-          <div
-            dir="ltr"
-            className="absolute inset-0 dot-grid will-change-transform"
-            style={{
-              transform: `translate(${viewPan.x}px, ${viewPan.y}px) scale(${viewZoom})`,
-              transformOrigin: '50% 50%',
-            }}
-          >
-            <div
-              className="absolute inset-0 z-0 cursor-grab active:cursor-grabbing touch-none"
-              onPointerDown={onPanHitPointerDown}
-              onPointerMove={onPanHitPointerMove}
-              onPointerUp={onPanHitPointerUp}
-              onPointerCancel={onPanHitPointerUp}
-            />
-            {/* Background SVG Connections */}
-            <svg
-              className="absolute inset-0 z-[1] w-full h-full pointer-events-none [direction:ltr]"
+      {/* ── Main ───────────────────────────────────────────────────────────── */}
+      <main className="flex-1 relative">
+        {/* Grid texture */}
+        <div className="fixed inset-0 port-grid pointer-events-none z-0" />
+
+        <AnimatePresence mode="wait">
+
+          {/* ── Level 0 — Port Entrance ────────────────────────────────────── */}
+          {level === 0 && (
+            <motion.div
+              key="l0"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              transition={{ duration: 0.4 }}
+              className="relative z-10 min-h-[calc(100dvh-64px)] flex flex-col items-center justify-center px-6 py-24 overflow-hidden"
             >
-              <defs>
-                <filter id="glow">
-                  <feGaussianBlur stdDeviation="1" result="blur" />
-                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                </filter>
-              </defs>
+              {/* Ambient orbs */}
+              <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[560px] h-[560px] rounded-full bg-port-accent/[0.04] blur-[120px] pointer-events-none" />
+              <div className="absolute bottom-1/4 right-1/4 w-48 h-48 rounded-full bg-port-gold/[0.04] blur-[80px] pointer-events-none" />
 
-              <g className="connections">
-                {/* Level 1 Lines (Root to Countries) */}
-                {countries.map((c) => {
-                  const s = toSVG(0, 0);
-                  const a = scaleXY(c.anchor);
-                  const e = toSVG(a.x, a.y);
-                  const mx = (s.x + e.x) / 2;
-                  const my = (s.y + e.y) / 2;
-                  const op = level === 1 ? 0.28 : level === 2 ? 0.06 : 0;
-                  return (
-                    <motion.path
-                      key={`line-l1-${c.id}`}
-                      d={`M${s.x},${s.y} Q${mx},${my} ${e.x},${e.y}`}
-                      fill="none" stroke="currentColor" strokeWidth={0.7} strokeLinecap="round"
-                      initial={{ pathLength: 0, opacity: 0 }}
-                      animate={{ pathLength: level >= 1 ? 1 : 0, opacity: level >= 1 ? op : 0 }}
-                      transition={{ duration: 0.6, ease: [0.65, 0, 0.35, 1], delay: 0.08 }}
-                    />
-                  );
-                })}
+              {/* Scan line */}
+              <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-port-accent/20 to-transparent port-scan pointer-events-none" />
 
-                {/* Level 2 Lines (Country to Categories) */}
-                {categories.map((cat) => {
-                  const country = exportData[selectedCountry!];
-                  const ca = scaleXY(country.anchor);
-                  const s = toSVG(ca.x, ca.y);
-                  const e = toSVG(cat.pos.x, cat.pos.y);
-                  const mx = (s.x + e.x) / 2;
-                  const my = (s.y + e.y) / 2;
-                  const isActive = level === 3 && selectedCategory === cat.id;
-                  const op = level === 2 ? 0.32 : isActive ? 0.4 : 0.06;
-                  return (
-                    <motion.path
-                      key={`line-l2-${cat.id}`}
-                      d={`M${s.x},${s.y} Q${mx},${my} ${e.x},${e.y}`}
-                      fill="none" stroke="currentColor" strokeWidth={0.7} strokeLinecap="round"
-                      initial={{ pathLength: 0, opacity: 0 }}
-                      animate={{ pathLength: level >= 2 ? 1 : 0, opacity: level >= 2 ? op : 0 }}
-                      transition={{ duration: 0.5, ease: [0.65, 0, 0.35, 1], delay: 0.15 }}
-                    />
-                  );
-                })}
+              <div className="relative z-10 flex flex-col items-center text-center max-w-2xl w-full">
 
-                {/* Level 3 Lines (Category to Companies) */}
-                {level === 3 && selectedCategory && companies.map((comp, i) => {
-                  const catPos = categories.find((c) => c.id === selectedCategory)?.pos ?? { x: 0, y: 0 };
-                  const s = toSVG(catPos.x, catPos.y);
-                  const e = toSVG(comp.pos.x, comp.pos.y);
-                  const mx = (s.x + e.x) / 2;
-                  const my = (s.y + e.y) / 2;
-                  return (
-                    <motion.path
-                      key={`line-l3-${i}`}
-                      d={`M${s.x},${s.y} Q${mx},${my} ${e.x},${e.y}`}
-                      fill="none" stroke="currentColor" strokeWidth={0.6} strokeLinecap="round"
-                      initial={{ pathLength: 0, opacity: 0 }}
-                      animate={{ pathLength: 1, opacity: 0.25 }}
-                      transition={{ duration: 0.35, ease: [0.65, 0, 0.35, 1], delay: 0.12 + i * 0.03 }}
-                    />
-                  );
-                })}
-              </g>
-            </svg>
-
-            {/* Level Titles */}
-            <AnimatePresence>
-              {level >= 2 && (
-                <motion.div
-                  initial={{ opacity: 0, y: -20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="absolute top-20 sm:top-8 left-1/2 -translate-x-1/2 z-[2] flex flex-col items-center pointer-events-none px-4 max-w-[min(100%,22rem)] text-center"
-                >
-                  <h2 className="text-base leading-snug sm:text-xl md:text-2xl font-serif text-ink tracking-tight">
-                    {selectedCountry && exportData[selectedCountry].label}
-                    {level === 3 && selectedCategory && ` — ${exportData[selectedCountry].categories[selectedCategory].label}`}
-                  </h2>
-                  <div className="w-[30px] h-px bg-ink mt-2" />
+                {/* Badge */}
+                <motion.div {...slideUp(0.05)}>
+                  <div className="mb-10 inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-port-accent/25 bg-port-accent-bg text-port-accent text-[11px] font-medium tracking-[0.18em] uppercase">
+                    <span className="w-1.5 h-1.5 rounded-full bg-port-accent animate-pulse" />
+                    Virtual Trade Hub
+                  </div>
                 </motion.div>
-              )}
-            </AnimatePresence>
 
-            {/* Nodes Layer — LTR so anchors match SVG math when the page is RTL (Persian) */}
-            <div className="absolute inset-0 z-[3] flex items-center justify-center pointer-events-none [direction:ltr]">
-              {/* Root Node */}
-              <div className="relative z-40 pointer-events-none">
-                <motion.button
-                  type="button"
-                  data-graph-node
-                  onClick={() => {
-                    if (level === 0) setLevel(1);
-                    else handleBack();
-                  }}
-                  whileHover={{ scale: level >= 2 ? 1.05 : 1.02 }}
-                  whileTap={{ scale: 0.95 }}
-                  animate={{
-                    width: level >= 2 ? 80 : 140,
-                    height: level >= 2 ? 80 : 140,
-                    backgroundColor: level >= 1 ? "#1d1d1f" : "#ffffff",
-                    color: level >= 1 ? "#ffffff" : "#1d1d1f",
-                    opacity: (level >= 2) ? 0.5 : 1
-                  }}
-                  className="relative z-40 pointer-events-auto touch-manipulation rounded-full border-[1.5px] border-ink flex flex-col items-center justify-center transition-all duration-500 ease-in-out shadow-sm"
-                >
-                  {level === 0 && <div className="absolute inset-0 rounded-full border border-ink pulse-ring pointer-events-none" />}
-                  <span className={`font-serif leading-tight ${level >= 2 ? 'text-lg' : 'text-xl'}`}>{rootLine1Display}</span>
-                  <span className={`font-sans font-bold tracking-[0.12em] ${level >= 2 ? 'text-[8px]' : 'text-[10px]'} opacity-70`}>{rootLine2Display}</span>
-                </motion.button>
-                {adminOk && level === 0 ? (
+                {/* Title */}
+                <motion.div {...slideUp(0.12)}>
+                  <h1 className="font-serif leading-[0.88] tracking-tight mb-2">
+                    <span className="block text-[clamp(3.5rem,12vw,7rem)] text-port-ink">{rootLine1}</span>
+                    <span className="block text-[clamp(3.5rem,12vw,7rem)] text-port-accent">{rootLine2}</span>
+                  </h1>
+                </motion.div>
+
+                {/* Subtitle */}
+                <motion.p {...slideUp(0.2)} className="text-port-soft text-[15px] sm:text-base max-w-sm mt-6 mb-10 leading-relaxed">
+                  Explore global export markets through interactive port terminals
+                </motion.p>
+
+                {/* Stats */}
+                <motion.div {...slideUp(0.27)} className="flex items-center gap-8 mb-12">
+                  {[
+                    { value: countries.length, label: 'Terminals' },
+                    { value: totalBooths,       label: 'Booths'     },
+                    { value: totalVendors,      label: 'Vendors'    },
+                  ].map((s, i) => (
+                    <div key={i} className="flex flex-col items-center gap-1">
+                      <span className="font-serif text-2xl text-port-ink">{s.value}</span>
+                      <span className="text-[11px] text-port-soft tracking-wide">{s.label}</span>
+                    </div>
+                  ))}
+                </motion.div>
+
+                {/* Enter CTA */}
+                <motion.div {...slideUp(0.33)} className="flex flex-col items-center gap-3">
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      openRootTitleModal();
-                    }}
-                    className="absolute -top-1 -end-1 z-[45] flex h-8 w-8 items-center justify-center rounded-full border border-border bg-white text-ink shadow-md pointer-events-auto touch-manipulation hover:bg-hover active:scale-95"
-                    aria-label={t('editMapCenterTitle')}
+                    onClick={() => setLevel(1)}
+                    className="port-enter-btn group flex items-center gap-2.5 px-8 py-4 rounded-full bg-port-accent text-port-bg font-semibold text-[15px] tracking-wide hover:bg-port-accent/90 active:scale-[0.97] transition-transform"
                   >
-                    <Pencil className="w-3.5 h-3.5" strokeWidth={2} />
+                    Enter Port
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </button>
-                ) : null}
+
+                  {adminOk && (
+                    <button
+                      type="button"
+                      onClick={openTitleModal}
+                      className="flex items-center gap-1.5 text-[11px] text-port-faint hover:text-port-soft transition-colors mt-1"
+                    >
+                      <Pencil className="w-3 h-3" strokeWidth={2} />
+                      Edit title
+                    </button>
+                  )}
+                </motion.div>
               </div>
 
-              {/* Level 1 Nodes (Countries) */}
-              {countries.map((c, i) => (
-                <AnimatePresence key={c.id}>
-                  {level >= 1 && (
-                    <motion.div
-                      data-graph-node
-                      initial={{ scale: 0.3, opacity: 0, x: 0, y: 0 }}
-                      animate={{
-                        scale: 1,
-                        opacity: (level === 1 || selectedCountry === c.id) ? 1 : 0.2,
-                        x: scaleXY(c.anchor).x,
-                        y: scaleXY(c.anchor).y
-                      }}
-                      exit={{ scale: 0.3, opacity: 0 }}
-                      transition={{
-                        type: 'spring',
-                        damping: 20,
-                        stiffness: 150,
-                        delay: level === 1 ? i * 0.07 : 0
-                      }}
-                      className="absolute z-30 flex flex-col items-center gap-2 group cursor-pointer pointer-events-auto touch-manipulation"
-                      onClick={() => {
-                        if (level === 1) {
-                          setSelectedCountry(c.id);
-                          setLevel(2);
-                        } else if (level >= 2 && selectedCountry === c.id) {
-                          handleBack();
-                        }
-                      }}
+              {/* Scroll indicator */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 2 }}
+                className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-port-faint pointer-events-none"
+              >
+                <div className="w-px h-10 bg-gradient-to-b from-transparent to-port-faint/40" />
+                <span className="text-[9px] tracking-[0.2em] uppercase">Scroll</span>
+              </motion.div>
+            </motion.div>
+          )}
+
+          {/* ── Level 1 — Country Terminals ───────────────────────────────── */}
+          {level === 1 && (
+            <motion.div key="l1" {...slideUp()} className="relative z-10 px-4 sm:px-8 py-10 max-w-6xl mx-auto">
+
+              <div className="mb-8">
+                <p className="text-port-soft text-xs tracking-[0.16em] uppercase mb-2">Tohid Meta Port</p>
+                <h2 className="font-serif text-3xl sm:text-4xl text-port-ink">Port Terminals</h2>
+                <p className="text-port-soft text-sm mt-2">Select a terminal to explore its trade booths</p>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                {countries.map((c, i) => {
+                  const accent = TERMINAL_ACCENTS[c.flag || c.id] ?? TERMINAL_ACCENTS.iran;
+                  return (
+                    <motion.button
+                      key={c.id}
+                      type="button"
+                      initial={{ opacity: 0, y: 20, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ delay: i * 0.065, duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
+                      onClick={() => { setSelectedCountry(c.id); setLevel(2); }}
+                      className="group relative flex flex-col p-5 sm:p-6 rounded-2xl border border-port-border hover:border-port-border-hi port-card-glow transition-all text-left active:scale-[0.98] overflow-hidden"
+                      style={{ background: `linear-gradient(135deg, ${accent.from} 0%, transparent 60%), #0e0e1c` }}
                     >
-                      <motion.div
-                        whileHover={{ y: -3 }}
-                        className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full border border-border flex items-center justify-center transition-all duration-300 ${selectedCountry === c.id || (level === 1 && false) ? 'bg-ink border-ink text-white' : 'bg-white group-hover:bg-hover'}`}
+                      {/* Terminal ID badge */}
+                      <div
+                        className="absolute top-3 end-3 px-1.5 py-0.5 rounded text-[9px] font-medium tracking-wider uppercase opacity-60"
+                        style={{ color: accent.badge, background: `${accent.badge}18` }}
                       >
-                        <FlagIcon id={c.flag || c.id} active={selectedCountry === c.id} />
-                      </motion.div>
-                      <div className="flex flex-col items-center">
-                        <span className="text-[14px] font-medium tracking-tight group-hover:text-ink">{c.label}</span>
-                        <span className="text-[11px] text-ink-soft">{t('marketsCount', { count: Object.keys(c.categories).length })}</span>
+                        T-{String(i + 1).padStart(2, '0')}
                       </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              ))}
 
-              {/* Level 2 Nodes (Categories) */}
-              <AnimatePresence>
-                {level >= 2 &&
-                  categories.map((cat, i) => {
-                    const Icon = cat.icon as LucideIcon;
-                    const dense = categories.length > 10;
-                    const stepDelay = dense ? Math.min(0.04, 0.5 / categories.length) : 0.08;
-                    return (
-                  <motion.div
-                    key={cat.id}
-                    data-graph-node
-                    initial={{ scale: 0, opacity: 0, x: scaleXY(exportData[selectedCountry!].anchor).x, y: scaleXY(exportData[selectedCountry!].anchor).y }}
-                    animate={{
-                      scale: 1,
-                      opacity: (level === 2 || selectedCategory === cat.id) ? 1 : 0.2,
-                      x: cat.pos.x,
-                      y: cat.pos.y
-                    }}
-                    exit={{ scale: 0, opacity: 0 }}
-                    transition={{
-                      type: 'spring',
-                      damping: dense ? 22 : 18,
-                      stiffness: dense ? 140 : 120,
-                      delay: level === 2 ? i * stepDelay : 0
-                    }}
-                    style={{ transformOrigin: dense ? '50% 20px' : '50% 22px' }}
-                    className={`absolute z-20 flex flex-col items-center group cursor-pointer pointer-events-auto touch-manipulation ${dense ? 'gap-1' : 'gap-1.5'} sm:[transform-origin:50%_24px]`}
-                    onClick={() => {
-                      if (level === 2) {
-                        setSelectedCategory(cat.id);
-                        setLevel(3);
-                      } else if (level === 3 && selectedCategory === cat.id) {
-                        handleBack();
-                      }
-                    }}
-                  >
-                    <div className={`${dense ? 'w-10 h-10 sm:w-11 sm:h-11' : 'w-11 h-11 sm:w-[56px] sm:h-[56px]'} shrink-0 rounded-full border border-border flex items-center justify-center transition-all duration-300 ${selectedCategory === cat.id ? 'bg-ink border-ink text-white' : 'bg-white group-hover:bg-hover'}`}>
-                      <Icon className={dense ? 'w-4 h-4 sm:w-[18px] sm:h-[18px]' : 'w-5 h-5 sm:w-6 sm:h-6'} strokeWidth={1.5} />
-                    </div>
-                    <div className={`flex flex-col items-center text-center ${dense ? 'max-w-[68px] sm:max-w-[76px]' : 'max-w-[80px]'}`}>
-                      <span className={`${dense ? 'text-[10px] sm:text-[11px]' : 'text-[12px] sm:text-[13px]'} leading-tight font-medium tracking-tight`}>{cat.label}</span>
-                    </div>
-                  </motion.div>
-                    );
-                  })}
-              </AnimatePresence>
+                      {/* Flag icon */}
+                      <div
+                        className="w-12 h-12 rounded-xl border flex items-center justify-center mb-5 transition-all group-hover:scale-105"
+                        style={{
+                          background: `${accent.badge}14`,
+                          borderColor: `${accent.badge}30`,
+                          color: accent.badge,
+                        }}
+                      >
+                        <FlagIcon id={c.flag || c.id} className="w-6 h-6" />
+                      </div>
 
-              {/* Level 3 Nodes (Companies) */}
-              <AnimatePresence>
-                {level === 3 && companies.map((comp, i) => (
+                      <h3 className="font-semibold text-[15px] text-port-ink mb-1 group-hover:text-port-accent transition-colors">
+                        {c.label}
+                      </h3>
+                      <p className="text-[11px] text-port-soft">
+                        {Object.keys(c.categories).length} {Object.keys(c.categories).length === 1 ? 'booth' : 'booths'}
+                      </p>
+
+                      {/* Arrow */}
+                      <div className="absolute bottom-5 end-5 text-port-faint group-hover:text-port-accent group-hover:translate-x-0.5 transition-all rtl:rotate-180">
+                        <ArrowRight className="w-4 h-4" strokeWidth={1.5} />
+                      </div>
+
+                      {/* Bottom glow line */}
+                      <div
+                        className="absolute inset-x-0 bottom-0 h-px opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ background: `linear-gradient(90deg, transparent, ${accent.badge}60, transparent)` }}
+                      />
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── Level 2 — Category Booths ──────────────────────────────────── */}
+          {level === 2 && selectedCountry && (
+            <motion.div key="l2" {...slideUp()} className="relative z-10 px-4 sm:px-8 py-10 max-w-6xl mx-auto">
+
+              {/* Terminal header */}
+              <div className="flex items-center gap-4 mb-10 pb-8 border-b border-port-border">
+                {(() => {
+                  const accent = TERMINAL_ACCENTS[exportData[selectedCountry].flag || selectedCountry] ?? TERMINAL_ACCENTS.iran;
+                  return (
+                    <div
+                      className="w-16 h-16 rounded-2xl border flex items-center justify-center shrink-0"
+                      style={{ background: `${accent.badge}14`, borderColor: `${accent.badge}30`, color: accent.badge }}
+                    >
+                      <FlagIcon id={exportData[selectedCountry].flag || selectedCountry} className="w-8 h-8" />
+                    </div>
+                  );
+                })()}
+                <div>
+                  <p className="text-port-soft text-xs tracking-[0.14em] uppercase mb-1">Terminal</p>
+                  <h2 className="font-serif text-3xl sm:text-4xl text-port-ink">{exportData[selectedCountry].label}</h2>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <h3 className="text-port-soft text-sm font-medium tracking-wide">Trade Booths</h3>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                {categories.map((cat, i) => {
+                  const Icon = cat.icon as LucideIcon;
+                  return (
+                    <motion.button
+                      key={cat.id}
+                      type="button"
+                      initial={{ opacity: 0, y: 18, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ delay: i * 0.06, duration: 0.36, ease: [0.16, 1, 0.3, 1] }}
+                      onClick={() => { setSelectedCategory(cat.id); setLevel(3); }}
+                      className="group relative flex flex-col p-5 rounded-2xl border border-port-border bg-port-surface hover:border-port-accent/30 port-card-glow transition-all text-left active:scale-[0.98] overflow-hidden"
+                    >
+                      {/* Booth number */}
+                      <div className="absolute top-3 end-3 text-[9px] text-port-faint tracking-widest font-medium">
+                        B{String(i + 1).padStart(2, '0')}
+                      </div>
+
+                      {/* Icon */}
+                      <div className="w-10 h-10 rounded-xl bg-port-accent-bg border border-port-accent-border flex items-center justify-center text-port-accent mb-4 group-hover:bg-port-accent/20 group-hover:scale-105 transition-all shrink-0">
+                        <Icon className="w-5 h-5" strokeWidth={1.5} />
+                      </div>
+
+                      <h3 className="font-medium text-[13px] text-port-ink leading-snug mb-1.5 group-hover:text-port-accent transition-colors">
+                        {cat.label}
+                      </h3>
+                      <p className="text-[11px] text-port-soft">{cat.companies.length} vendors</p>
+
+                      {/* Hover line */}
+                      <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-port-accent/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── Level 3 — Vendor Cards ─────────────────────────────────────── */}
+          {level === 3 && selectedCountry && selectedCategory && (
+            <motion.div key="l3" {...slideUp()} className="relative z-10 px-4 sm:px-8 py-10 max-w-4xl mx-auto">
+
+              {/* Booth header */}
+              <div className="flex items-center gap-3 mb-2">
+                {(() => {
+                  const Icon = exportData[selectedCountry].categories[selectedCategory].icon as LucideIcon;
+                  return (
+                    <div className="w-10 h-10 rounded-xl bg-port-accent-bg border border-port-accent-border flex items-center justify-center text-port-accent shrink-0">
+                      <Icon className="w-5 h-5" strokeWidth={1.5} />
+                    </div>
+                  );
+                })()}
+                <h2 className="font-serif text-2xl sm:text-3xl text-port-ink">
+                  {exportData[selectedCountry].categories[selectedCategory].label}
+                </h2>
+              </div>
+              <p className="text-port-soft text-sm mb-10 ps-[52px]">
+                {exportData[selectedCountry].label} · {companies.length} vendors
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {companies.map((comp, i) => (
                   <motion.a
-                    key={`${selectedCountry!}-${selectedCategory!}-${comp.name}`}
-                    data-graph-node
+                    key={`${comp.name}-${i}`}
                     href={comp.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    initial={{ scale: 0, opacity: 0, x: categories.find(c => c.id === selectedCategory)?.pos.x ?? 0, y: categories.find(c => c.id === selectedCategory)?.pos.y ?? 0 }}
-                    animate={{ scale: 1, opacity: 1, x: comp.pos.x, y: comp.pos.y }}
-                    exit={{ scale: 0, opacity: 0 }}
-                    transition={{
-                      type: 'spring',
-                      damping: 15,
-                      stiffness: 100,
-                      delay: 0.2 + i * 0.06
-                    }}
-                    style={{ transformOrigin: '50% 22px' }}
-                    className="absolute z-10 flex flex-col items-center gap-1 group pointer-events-auto touch-manipulation sm:[transform-origin:50%_24px]"
+                    initial={{ opacity: 0, y: 14 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.07, duration: 0.36, ease: [0.16, 1, 0.3, 1] }}
+                    className="group flex items-center gap-4 p-5 rounded-2xl border border-port-border bg-port-surface hover:border-port-accent/30 port-card-glow transition-all active:scale-[0.99]"
                   >
-                    <div className="w-11 h-11 min-w-11 min-h-11 sm:w-12 sm:h-12 sm:min-w-12 sm:min-h-12 rounded-full border border-border bg-white group-hover:bg-ink group-hover:text-white flex items-center justify-center transition-all duration-300 shadow-sm group-hover:-translate-y-1">
-                      <span className="font-serif text-lg">{comp.initial}</span>
+                    {/* Initial */}
+                    <div className="w-12 h-12 shrink-0 rounded-xl border border-port-border bg-port-surface flex items-center justify-center group-hover:bg-port-accent-bg group-hover:border-port-accent-border transition-all">
+                      <span className="font-serif text-xl text-port-ink group-hover:text-port-accent transition-colors">
+                        {comp.initial}
+                      </span>
                     </div>
-                    <div className="flex flex-col items-center max-w-[88px] sm:max-w-[100px] text-center px-0.5">
-                      <span className="text-[10px] sm:text-[12px] font-semibold tracking-tight leading-tight">{comp.name}</span>
-                      <span className="text-[8px] sm:text-[10px] text-ink-soft group-hover:text-ink/60 leading-tight mt-0.5">{comp.tag}</span>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-[14px] text-port-ink group-hover:text-port-accent transition-colors truncate">
+                        {comp.name}
+                      </div>
+                      <div className="text-[12px] text-port-soft mt-0.5 truncate">{comp.tag}</div>
                     </div>
+
+                    {/* External link */}
+                    <ExternalLink
+                      className="w-4 h-4 text-port-faint group-hover:text-port-accent shrink-0 transition-all group-hover:scale-110"
+                      strokeWidth={1.5}
+                    />
                   </motion.a>
                 ))}
-              </AnimatePresence>
-            </div>
-          </div>
-        </div>
-
-        {/* Map hint (fixed to viewport) */}
-        <AnimatePresence>
-          {level === 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              className="absolute bottom-20 sm:bottom-12 left-1/2 -translate-x-1/2 z-[55] flex flex-col sm:flex-row items-center gap-2 sm:gap-3 px-3 max-w-[95vw] pointer-events-none"
-            >
-              <div className="w-1.5 h-1.5 bg-ink rounded-full animate-pulse shrink-0" />
-              <span className="text-[11px] sm:text-[13px] text-center tracking-wide sm:tracking-widest font-medium text-ink/40 leading-snug">
-                {t('tapExplore')}
-              </span>
+              </div>
             </motion.div>
           )}
-        </AnimatePresence>
 
-        <AnimatePresence>
-          {level >= 1 && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 8 }}
-              className="absolute bottom-[max(4.5rem,env(safe-area-inset-bottom,0px)+3.25rem)] sm:bottom-[5.25rem] left-1/2 -translate-x-1/2 z-[55] max-w-[min(22rem,92vw)] px-3 pointer-events-none text-center"
-            >
-              <p className="text-[10px] sm:text-[11px] text-ink-soft/90 leading-snug">
-                {t('mapControlsHint')}
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {level >= 1 && (Math.abs(viewPan.x) > 3 || Math.abs(viewPan.y) > 3 || Math.abs(viewZoom - 1) > 0.06) && (
-          <button
-            type="button"
-            className="absolute start-3 bottom-[max(0.75rem,env(safe-area-inset-bottom,0px))] z-[60] w-10 h-10 rounded-full bg-white border border-border shadow-md flex items-center justify-center text-ink hover:bg-hover active:scale-95 touch-manipulation"
-            aria-label={t('resetViewAria')}
-            onClick={() => {
-              setViewPan({ x: 0, y: 0 });
-              setViewZoom(1);
-            }}
-          >
-            <LocateFixed className="w-[18px] h-[18px]" strokeWidth={2} />
-          </button>
-        )}
-
-        {/* Back Button */}
-        <AnimatePresence>
-          {level > 0 && (
-            <motion.button
-              type="button"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              onClick={handleBack}
-              className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom,0px))] end-3 sm:bottom-10 sm:end-10 z-[60] bg-ink text-white ps-4 pe-5 py-2.5 sm:px-6 sm:py-3 rounded-full flex items-center gap-2 sm:gap-2.5 shadow-lg hover:pe-7 sm:hover:pe-8 transition-all active:scale-95 group touch-manipulation"
-            >
-              <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1 rtl:rotate-180 rtl:group-hover:translate-x-1" />
-              <span className="text-[14px] font-medium tracking-tight">{t('back')}</span>
-            </motion.button>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {rootTitleModalOpen ? (
-            <motion.div
-              key="root-title-modal"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[200] flex items-center justify-center bg-black/45 p-4"
-              onPointerDown={(e) => {
-                if (e.target === e.currentTarget) setRootTitleModalOpen(false);
-              }}
-            >
-              <motion.div
-                initial={{ scale: 0.96, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.96, opacity: 0 }}
-                transition={{ type: 'spring', damping: 26, stiffness: 320 }}
-                className="relative w-full max-w-sm rounded-2xl border border-border bg-white p-6 shadow-xl"
-                dir="auto"
-                onPointerDown={(e) => e.stopPropagation()}
-              >
-                <button
-                  type="button"
-                  className="absolute end-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-ink-soft hover:bg-hover hover:text-ink"
-                  onClick={() => setRootTitleModalOpen(false)}
-                  aria-label={t('mapCenterTitleCancel')}
-                >
-                  <X className="w-4 h-4" strokeWidth={2} />
-                </button>
-                <h3 className="font-serif pe-10 text-lg text-ink">{t('editMapCenterTitle')}</h3>
-                <p className="mt-1 text-[11px] text-ink-soft leading-snug">{t('rootMapTitleHint')}</p>
-                <div className="mt-4 space-y-3">
-                  <label className="block text-xs">
-                    <span className="text-ink-soft">{t('rootMapTitleLine1')}</span>
-                    <input
-                      className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
-                      value={rootTitleDraft.line1}
-                      onChange={(e) => setRootTitleDraft((d) => ({ ...d, line1: e.target.value }))}
-                      maxLength={80}
-                    />
-                  </label>
-                  <label className="block text-xs">
-                    <span className="text-ink-soft">{t('rootMapTitleLine2')}</span>
-                    <input
-                      className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
-                      value={rootTitleDraft.line2}
-                      onChange={(e) => setRootTitleDraft((d) => ({ ...d, line2: e.target.value }))}
-                      maxLength={80}
-                    />
-                  </label>
-                </div>
-                <div className="mt-5 flex flex-wrap justify-end gap-2">
-                  <button
-                    type="button"
-                    className="rounded-full border border-border px-4 py-2 text-sm font-medium text-ink hover:bg-hover"
-                    onClick={() => setRootTitleModalOpen(false)}
-                  >
-                    {t('mapCenterTitleCancel')}
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-full bg-ink px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-                    onClick={() => {
-                      setRootNodeLines({
-                        line1: rootTitleDraft.line1.trim(),
-                        line2: rootTitleDraft.line2.trim(),
-                      });
-                      setRootTitleModalOpen(false);
-                    }}
-                  >
-                    {t('mapCenterTitleSave')}
-                  </button>
-                </div>
-              </motion.div>
-            </motion.div>
-          ) : null}
         </AnimatePresence>
       </main>
+
+      {/* ── Root Title Modal ──────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {titleModalOpen && (
+          <motion.div
+            key="title-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+            onPointerDown={(e) => { if (e.target === e.currentTarget) setTitleModalOpen(false); }}
+          >
+            <motion.div
+              initial={{ scale: 0.96, opacity: 0, y: 8 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.96, opacity: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 360 }}
+              className="relative w-full max-w-sm rounded-2xl border border-port-border bg-port-surface p-6 shadow-2xl"
+              dir="auto"
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                className="absolute end-3 top-3 w-8 h-8 flex items-center justify-center rounded-full hover:bg-port-border text-port-soft hover:text-port-ink transition-all"
+                onClick={() => setTitleModalOpen(false)}
+              >
+                <X className="w-4 h-4" strokeWidth={2} />
+              </button>
+
+              <h3 className="font-serif text-lg text-port-ink pe-10">{t('editMapCenterTitle')}</h3>
+              <p className="mt-1 text-[11px] text-port-soft leading-snug">{t('rootMapTitleHint')}</p>
+
+              <div className="mt-5 space-y-3">
+                {(['line1', 'line2'] as const).map((key) => (
+                  <label key={key} className="block text-xs">
+                    <span className="text-port-soft">{t(key === 'line1' ? 'rootMapTitleLine1' : 'rootMapTitleLine2')}</span>
+                    <input
+                      className="mt-1 w-full rounded-lg border border-port-border bg-port-bg px-3 py-2 text-sm text-port-ink placeholder:text-port-faint focus:outline-none focus:border-port-accent/50 transition-colors"
+                      value={titleDraft[key]}
+                      onChange={(e) => setTitleDraft((d) => ({ ...d, [key]: e.target.value }))}
+                      maxLength={80}
+                    />
+                  </label>
+                ))}
+              </div>
+
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  type="button"
+                  className="rounded-full border border-port-border px-4 py-2 text-sm text-port-soft hover:bg-port-border transition-all"
+                  onClick={() => setTitleModalOpen(false)}
+                >
+                  {t('mapCenterTitleCancel')}
+                </button>
+                <button
+                  type="button"
+                  className="rounded-full bg-port-accent px-4 py-2 text-sm font-semibold text-port-bg hover:opacity-90 active:scale-[0.97] transition-all"
+                  onClick={() => {
+                    setRootNodeLines({ line1: titleDraft.line1.trim(), line2: titleDraft.line2.trim() });
+                    setTitleModalOpen(false);
+                  }}
+                >
+                  {t('mapCenterTitleSave')}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
