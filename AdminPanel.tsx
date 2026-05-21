@@ -4,7 +4,7 @@ import { LogOut, Plus, Save, Trash2, Upload, Download, RotateCcw, ExternalLink }
 import type { CategoryJson, CompanyJson, CountryJson } from './networkTypes.ts';
 import { ICON_KEYS } from './iconRegistry.ts';
 import { defaultNetworkClone, DEFAULT_ROOT_NODE_LINES, useExportData, validateNetwork } from './networkContext.tsx';
-import { LanguageSwitcher, useLocale } from './i18n/LocaleContext.tsx';
+import { useLocale } from './i18n/LocaleContext.tsx';
 
 function openCompanyUrlInNewTab(raw: string, invalidMessage: string) {
   const t = raw.trim();
@@ -363,7 +363,6 @@ export default function AdminPanel() {
           <h1 className="font-serif text-lg truncate">{t('adminHeader')}</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <LanguageSwitcher />
           <label className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium cursor-pointer hover:bg-hover">
             <Upload className="w-3.5 h-3.5" />
             {t('import')}

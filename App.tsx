@@ -11,7 +11,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { DEFAULT_ROOT_NODE_LINES, useExportData } from './networkContext.tsx';
-import { LanguageSwitcher, useLocale } from './i18n/LocaleContext.tsx';
+import { useLocale } from './i18n/LocaleContext.tsx';
 
 type AppLevel = 0 | 1 | 2 | 3;
 
@@ -229,7 +229,6 @@ export default function App() {
 
         {/* Right: Actions */}
         <div className="flex items-center gap-1 shrink-0">
-          <LanguageSwitcher />
           <Link
             to="/admin"
             className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-port-surface border border-transparent hover:border-port-border transition-all text-port-soft hover:text-port-ink"
