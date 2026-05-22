@@ -312,7 +312,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setLevel(1)}
-                    className="port-enter-btn group flex items-center gap-2.5 px-8 py-4 rounded-full bg-port-accent text-port-bg font-semibold text-[15px] tracking-wide hover:bg-port-accent/90 active:scale-[0.97] transition-transform"
+                    className="port-enter-btn group flex items-center gap-2.5 px-8 py-4 min-h-[52px] rounded-full bg-port-accent text-port-bg font-semibold text-[15px] tracking-wide hover:bg-port-accent/90 active:opacity-80 transition-opacity"
                   >
                     Enter Port
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
