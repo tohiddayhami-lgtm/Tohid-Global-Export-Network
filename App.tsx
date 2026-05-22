@@ -263,9 +263,9 @@ export default function App() {
               transition={{ duration: 0.4 }}
               className="relative z-10 min-h-[calc(100dvh-64px)] flex flex-col items-center justify-center px-6 py-24 overflow-hidden"
             >
-              {/* Ambient orbs */}
-              <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[560px] h-[560px] rounded-full bg-port-accent/[0.04] blur-[120px] pointer-events-none" />
-              <div className="absolute bottom-1/4 right-1/4 w-48 h-48 rounded-full bg-port-gold/[0.04] blur-[80px] pointer-events-none" />
+              {/* Ambient orbs — smaller blur on mobile to reduce GPU work */}
+              <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[560px] h-[560px] rounded-full bg-port-accent/[0.04] blur-[60px] sm:blur-[120px] pointer-events-none" />
+              <div className="absolute bottom-1/4 right-1/4 w-48 h-48 rounded-full bg-port-gold/[0.04] blur-[40px] sm:blur-[80px] pointer-events-none" />
 
               {/* Scan line */}
               <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-port-accent/20 to-transparent port-scan pointer-events-none" />
@@ -312,6 +312,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setLevel(1)}
+                    onPointerDown={(e) => { if (e.pointerType === 'touch') setLevel(1); }}
                     className="port-enter-btn group flex items-center gap-2.5 px-8 py-4 min-h-[52px] rounded-full bg-port-accent text-port-bg font-semibold text-[15px] tracking-wide hover:bg-port-accent/90 active:opacity-80 transition-opacity"
                   >
                     Enter Port

@@ -52,9 +52,30 @@
 }
 
 .port-glass-nav {
-  background: rgba(7, 7, 15, 0.88);
-  backdrop-filter: blur(24px) saturate(140%);
-  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  background: rgba(7, 7, 15, 0.92);
+  backdrop-filter: blur(12px) saturate(120%);
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
+  will-change: transform;
+}
+
+/* On mobile reduce blur to cut GPU work */
+@media (max-width: 640px) {
+  .port-glass-nav {
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    background: rgba(7, 7, 15, 0.96);
+  }
+  .port-glass {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  /* Disable continuous animations on mobile to save battery & improve tap response */
+  .port-enter-btn {
+    animation: none;
+  }
+  .port-scan {
+    animation: none;
+  }
 }
 
 /* ── Ambient grid background ── */

@@ -10,18 +10,8 @@ import {
   type ReactNode,
   type SetStateAction,
 } from 'react';
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
-import {
-  doc,
-  getDoc,
-  getDocFromServer,
-  getFirestore,
-  increment,
-  onSnapshot,
-  serverTimestamp,
-  setDoc,
-  type DocumentSnapshot,
-} from 'firebase/firestore';
+import type { User } from 'firebase/auth';
+import type { DocumentSnapshot } from 'firebase/firestore';
 import type { ExportNetworkJson, RootNodeLines } from './networkTypes.ts';
 import { hydrateNetwork, type ExportDataMap } from './hydrateNetwork.ts';
 import defaultNetworkJson from './default-network.json';
@@ -184,7 +174,6 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
   const lastAppliedRemoteRevRef = useRef(-1);
   /** When `rev` is missing, use `updatedAt` so old cached snapshots cannot re-apply deleted categories. */
   const lastAppliedServerUpdatedAtMsRef = useRef(0);
-  const cloudSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flushPendingCloudSaveRef = useRef<() => void>(() => {});
 
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
@@ -198,120 +187,143 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  // Auth state — firebase/auth is loaded lazily so it doesn't block initial render
   useEffect(() => {
     if (!firebaseApp) return;
-    const auth = getAuth(firebaseApp);
-    return onAuthStateChanged(auth, setFirebaseUser);
-  }, []);
-
-  useEffect(() => {
-    if (!firebaseApp) return;
-    const db = getFirestore(firebaseApp);
-    const ref = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
-
-    const applyRemoteSnap = (snap: DocumentSnapshot) => {
-      if (!snap.exists()) {
-        setRemoteReady(true);
-        return;
-      }
-      const data = snap.data() as Record<string, unknown> & { payload?: unknown; rev?: unknown };
-      const revNum = normalizeFirestoreRev(data?.rev);
-      const updMs = readServerUpdatedAtMs(data);
-
-      if (revNum !== null && revNum <= lastAppliedRemoteRevRef.current) {
-        setRemoteReady(true);
-        return;
-      }
-      if (revNum === null && updMs > 0 && updMs <= lastAppliedServerUpdatedAtMsRef.current) {
-        setRemoteReady(true);
-        return;
-      }
-
-      const rootFromDoc = readRootLinesFromFirestoreDoc(data);
-      if (rootFromDoc) {
-        const cur = rootNodeLinesRef.current;
-        if (rootFromDoc.line1 !== cur.line1 || rootFromDoc.line2 !== cur.line2) {
-          setRootNodeLines(rootFromDoc);
-        }
-      }
-      const payload = data?.payload;
-      if (typeof payload !== 'string') {
-        setRemoteReady(true);
-        return;
-      }
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(payload);
-      } catch {
-        setRemoteReady(true);
-        return;
-      }
-      if (!validateNetwork(parsed)) {
-        setRemoteReady(true);
-        return;
-      }
-
-      const incoming = JSON.stringify(parsed);
-      const samePayload = incoming === JSON.stringify(networkJsonRef.current);
-
-      if (revNum === null) {
-        if (samePayload) {
-          if (updMs > 0) {
-            lastAppliedServerUpdatedAtMsRef.current = Math.max(lastAppliedServerUpdatedAtMsRef.current, updMs);
-          }
-          setRemoteReady(true);
-          return;
-        }
-        lastAppliedRemoteRevRef.current = 0;
-      } else {
-        lastAppliedRemoteRevRef.current = revNum;
-      }
-      if (updMs > 0) {
-        lastAppliedServerUpdatedAtMsRef.current = Math.max(lastAppliedServerUpdatedAtMsRef.current, updMs);
-      }
-      if (!samePayload) {
-        setNetworkJson(structuredClone(parsed));
-      }
-      setRemoteReady(true);
-    };
-
+    let unsub: (() => void) | undefined;
     let cancelled = false;
-    void getDocFromServer(ref)
-      .then((snap) => {
-        if (!cancelled) applyRemoteSnap(snap);
-      })
-      .catch(() => {
-        void getDoc(ref)
-          .then((snap) => {
-            if (!cancelled) applyRemoteSnap(snap);
-          })
-          .catch(() => {
-            if (!cancelled) setRemoteReady(true);
-          });
-      });
 
-    const unsub = onSnapshot(ref, applyRemoteSnap, () => {
-      setRemoteReady(true);
+    void import('firebase/auth').then(({ getAuth, onAuthStateChanged }) => {
+      if (cancelled || !firebaseApp) return;
+      unsub = onAuthStateChanged(getAuth(firebaseApp), setFirebaseUser);
     });
-
-    let lastVisibilityFetchMs = 0;
-    const onVisibility = () => {
-      if (document.visibilityState !== 'visible') return;
-      const now = Date.now();
-      if (now - lastVisibilityFetchMs < 2500) return;
-      lastVisibilityFetchMs = now;
-      void getDocFromServer(ref)
-        .then(applyRemoteSnap)
-        .catch(() => {
-          void getDoc(ref).then(applyRemoteSnap);
-        });
-    };
-    document.addEventListener('visibilitychange', onVisibility);
 
     return () => {
       cancelled = true;
-      unsub();
-      document.removeEventListener('visibilitychange', onVisibility);
+      unsub?.();
+    };
+  }, []);
+
+  // Firestore sync — firebase/firestore is loaded lazily so it doesn't block initial render
+  useEffect(() => {
+    if (!firebaseApp) return;
+
+    let cancelled = false;
+    let unsub: (() => void) | undefined;
+    let removeVisibility: (() => void) | undefined;
+
+    void import('firebase/firestore').then(({
+      getFirestore, doc, getDoc, getDocFromServer, onSnapshot,
+    }) => {
+      if (cancelled || !firebaseApp) return;
+
+      const db = getFirestore(firebaseApp);
+      const ref = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
+
+      const applyRemoteSnap = (snap: DocumentSnapshot) => {
+        if (!snap.exists()) {
+          setRemoteReady(true);
+          return;
+        }
+        const data = snap.data() as Record<string, unknown> & { payload?: unknown; rev?: unknown };
+        const revNum = normalizeFirestoreRev(data?.rev);
+        const updMs = readServerUpdatedAtMs(data);
+
+        if (revNum !== null && revNum <= lastAppliedRemoteRevRef.current) {
+          setRemoteReady(true);
+          return;
+        }
+        if (revNum === null && updMs > 0 && updMs <= lastAppliedServerUpdatedAtMsRef.current) {
+          setRemoteReady(true);
+          return;
+        }
+
+        const rootFromDoc = readRootLinesFromFirestoreDoc(data);
+        if (rootFromDoc) {
+          const cur = rootNodeLinesRef.current;
+          if (rootFromDoc.line1 !== cur.line1 || rootFromDoc.line2 !== cur.line2) {
+            setRootNodeLines(rootFromDoc);
+          }
+        }
+        const payload = data?.payload;
+        if (typeof payload !== 'string') {
+          setRemoteReady(true);
+          return;
+        }
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(payload);
+        } catch {
+          setRemoteReady(true);
+          return;
+        }
+        if (!validateNetwork(parsed)) {
+          setRemoteReady(true);
+          return;
+        }
+
+        const incoming = JSON.stringify(parsed);
+        const samePayload = incoming === JSON.stringify(networkJsonRef.current);
+
+        if (revNum === null) {
+          if (samePayload) {
+            if (updMs > 0) {
+              lastAppliedServerUpdatedAtMsRef.current = Math.max(lastAppliedServerUpdatedAtMsRef.current, updMs);
+            }
+            setRemoteReady(true);
+            return;
+          }
+          lastAppliedRemoteRevRef.current = 0;
+        } else {
+          lastAppliedRemoteRevRef.current = revNum;
+        }
+        if (updMs > 0) {
+          lastAppliedServerUpdatedAtMsRef.current = Math.max(lastAppliedServerUpdatedAtMsRef.current, updMs);
+        }
+        if (!samePayload) {
+          setNetworkJson(structuredClone(parsed));
+        }
+        setRemoteReady(true);
+      };
+
+      void getDocFromServer(ref)
+        .then((snap) => {
+          if (!cancelled) applyRemoteSnap(snap);
+        })
+        .catch(() => {
+          void getDoc(ref)
+            .then((snap) => {
+              if (!cancelled) applyRemoteSnap(snap);
+            })
+            .catch(() => {
+              if (!cancelled) setRemoteReady(true);
+            });
+        });
+
+      unsub = onSnapshot(ref, applyRemoteSnap, () => {
+        setRemoteReady(true);
+      });
+
+      let lastVisibilityFetchMs = 0;
+      const onVisibility = () => {
+        if (document.visibilityState !== 'visible') return;
+        const now = Date.now();
+        if (now - lastVisibilityFetchMs < 2500) return;
+        lastVisibilityFetchMs = now;
+        void getDocFromServer(ref)
+          .then(applyRemoteSnap)
+          .catch(() => {
+            void getDoc(ref).then(applyRemoteSnap);
+          });
+      };
+      document.addEventListener('visibilitychange', onVisibility);
+      removeVisibility = () => document.removeEventListener('visibilitychange', onVisibility);
+    });
+
+    return () => {
+      cancelled = true;
+      unsub?.();
+      removeVisibility?.();
     };
   }, []);
 
@@ -322,7 +334,7 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
     } catch {
       /* quota */
     }
-  }, [networkJson, firebaseApp, remoteReady]);
+  }, [networkJson, remoteReady]);
 
   useEffect(() => {
     try {
@@ -331,55 +343,71 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
     } catch {
       /* quota */
     }
-  }, [rootNodeLines, firebaseApp, remoteReady]);
+  }, [rootNodeLines, remoteReady]);
 
+  // Cloud save — firebase/firestore loaded lazily; timer tracked via closure vars
   useEffect(() => {
     if (!firebaseApp || !firebaseUser || !remoteReady) {
       flushPendingCloudSaveRef.current = () => {};
       return;
     }
-    const db = getFirestore(firebaseApp);
-    const ref = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
 
-    const runSave = () => {
-      const payload = JSON.stringify(networkJsonRef.current);
-      const { line1, line2 } = rootNodeLinesRef.current;
-      void setDoc(
-        ref,
-        {
-          payload,
-          rootLine1: line1,
-          rootLine2: line2,
-          updatedAt: serverTimestamp(),
-          rev: increment(1),
-        },
-        { merge: true }
-      ).catch((e) => {
-        console.error('[Firestore] Failed to save network', e);
-      });
-    };
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let pendingSave: (() => void) | null = null;
+    let removePageHide: (() => void) | null = null;
 
-    cloudSaveTimerRef.current = window.setTimeout(() => {
-      cloudSaveTimerRef.current = null;
-      runSave();
-    }, CLOUD_SAVE_DEBOUNCE_MS);
+    void import('firebase/firestore').then(({ getFirestore, doc, setDoc, serverTimestamp, increment }) => {
+      if (cancelled || !firebaseApp || !firebaseUser) return;
 
-    const flushIfPending = () => {
-      if (cloudSaveTimerRef.current === null) return;
-      window.clearTimeout(cloudSaveTimerRef.current);
-      cloudSaveTimerRef.current = null;
-      runSave();
-    };
-    flushPendingCloudSaveRef.current = flushIfPending;
+      const db = getFirestore(firebaseApp);
+      const ref = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
 
-    const onPageHide = () => {
-      flushIfPending();
-    };
-    window.addEventListener('pagehide', onPageHide);
+      const runSave = () => {
+        const payload = JSON.stringify(networkJsonRef.current);
+        const { line1, line2 } = rootNodeLinesRef.current;
+        void setDoc(
+          ref,
+          {
+            payload,
+            rootLine1: line1,
+            rootLine2: line2,
+            updatedAt: serverTimestamp(),
+            rev: increment(1),
+          },
+          { merge: true }
+        ).catch((e) => {
+          console.error('[Firestore] Failed to save network', e);
+        });
+      };
+
+      pendingSave = runSave;
+      timer = window.setTimeout(() => {
+        timer = null;
+        runSave();
+      }, CLOUD_SAVE_DEBOUNCE_MS);
+
+      const flushIfPending = () => {
+        if (timer === null) return;
+        window.clearTimeout(timer);
+        timer = null;
+        runSave();
+      };
+      flushPendingCloudSaveRef.current = flushIfPending;
+
+      const onPageHide = () => flushIfPending();
+      window.addEventListener('pagehide', onPageHide);
+      removePageHide = () => window.removeEventListener('pagehide', onPageHide);
+    });
 
     return () => {
-      window.removeEventListener('pagehide', onPageHide);
-      flushIfPending();
+      cancelled = true;
+      if (timer !== null) {
+        window.clearTimeout(timer);
+        timer = null;
+        pendingSave?.();
+      }
+      removePageHide?.();
       flushPendingCloudSaveRef.current = () => {};
     };
   }, [networkJson, rootNodeLines, firebaseUser, remoteReady]);
@@ -394,8 +422,9 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
           'Firebase is not configured. Add VITE_FIREBASE_* to `.env` and run `npm run build`, or deploy `firebase-config.json` next to `index.html` (see `public/firebase-config.json.example`).',
       };
     }
-    const auth = getAuth(firebaseApp);
     try {
+      const { getAuth, signInWithEmailAndPassword } = await import('firebase/auth');
+      const auth = getAuth(firebaseApp);
       await signInWithEmailAndPassword(auth, user.trim(), pass);
       return { ok: true };
     } catch (e: unknown) {
@@ -407,7 +436,9 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     if (firebaseApp) {
-      void signOut(getAuth(firebaseApp));
+      void import('firebase/auth').then(({ getAuth, signOut }) => {
+        void signOut(getAuth(firebaseApp!));
+      });
     }
   }, []);
 

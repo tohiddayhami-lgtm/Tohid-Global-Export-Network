@@ -28,8 +28,10 @@ export default defineConfig(({mode}) => {
       rollupOptions: {
         output: {
           manualChunks: {
+            // firebase/auth and firebase/firestore are dynamic imports (loaded lazily)
+            // so they are NOT listed here — Rollup auto-splits them on demand
             'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-            'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/analytics'],
+            'vendor-firebase-app': ['firebase/app', 'firebase/analytics'],
             'vendor-motion': ['motion'],
             'vendor-icons': ['lucide-react'],
           },
