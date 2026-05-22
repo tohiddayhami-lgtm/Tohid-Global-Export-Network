@@ -285,6 +285,47 @@
       }
     }
   },
+  "uk": {
+    "id": "uk",
+    "label": "United Kingdom",
+    "flag": "uk",
+    "anchor": { "x": -420, "y": -280 },
+    "categories": {
+      "finance": {
+        "label": "Finance",
+        "iconKey": "Gem",
+        "companies": [
+          { "name": "HSBC", "tag": "Global banking", "initial": "H", "url": "https://hsbc.com" },
+          { "name": "Barclays", "tag": "Investment banking", "initial": "B", "url": "https://barclays.com" },
+          { "name": "Standard Chartered", "tag": "Emerging markets", "initial": "S", "url": "https://sc.com" }
+        ]
+      },
+      "pharma": {
+        "label": "Pharmaceuticals",
+        "iconKey": "Pill",
+        "companies": [
+          { "name": "AstraZeneca", "tag": "Biopharmaceuticals", "initial": "A", "url": "https://astrazeneca.com" },
+          { "name": "GSK", "tag": "Global healthcare", "initial": "G", "url": "https://gsk.com" }
+        ]
+      },
+      "aerospace": {
+        "label": "Aerospace",
+        "iconKey": "Plane",
+        "companies": [
+          { "name": "Rolls-Royce", "tag": "Jet engines & power", "initial": "R", "url": "https://rolls-royce.com" },
+          { "name": "BAE Systems", "tag": "Defence & aerospace", "initial": "B", "url": "https://baesystems.com" }
+        ]
+      },
+      "consumer": {
+        "label": "Consumer Goods",
+        "iconKey": "ShoppingBag",
+        "companies": [
+          { "name": "Unilever", "tag": "Global FMCG", "initial": "U", "url": "https://unilever.com" },
+          { "name": "Diageo", "tag": "Spirits & beverages", "initial": "D", "url": "https://diageo.com" }
+        ]
+      }
+    }
+  },
   "usa": {
     "id": "usa",
     "label": "USA",

@@ -84,6 +84,15 @@ const FlagIcon = ({ id, className = 'w-6 h-6' }: { id: string; className?: strin
           <rect x="4" y="6" width="8" height="6" />
         </svg>
       );
+    case 'uk':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3"
+          strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <rect x="3" y="6" width="18" height="12" />
+          <path d="M3 12h18M12 6v12" />
+          <path d="M3 6l9 6 9-6M3 18l9-6 9 6" />
+        </svg>
+      );
     default:
       return <Globe className={className} />;
   }
@@ -100,6 +109,7 @@ const TERMINAL_ACCENTS: Record<string, { from: string; badge: string }> = {
   vietnam: { from: '#f5913218', badge: '#f59132' },
   germany: { from: '#f0a00018', badge: '#f0a000' },
   usa:     { from: '#3b82f618', badge: '#3b82f6' },
+  uk:      { from: '#cf142b18', badge: '#cf142b' },
 };
 
 const fadeIn = (delay = 0) => ({
