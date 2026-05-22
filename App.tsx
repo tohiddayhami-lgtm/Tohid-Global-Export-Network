@@ -85,9 +85,9 @@ const TERMINAL_ACCENTS: Record<string, { from: string; badge: string }> = {
 
 const fade = { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } };
 const slideUp = (delay = 0) => ({
-  initial: { opacity: 0, y: 24 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1], delay } },
-  exit: { opacity: 0, y: -16, transition: { duration: 0.25 } },
+  initial: { opacity: 0, y: 10 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94], delay } },
+  exit: { opacity: 0, transition: { duration: 0.18 } },
 });
 
 // ── Component ───────────────────────────────────────────────────────────────
@@ -259,8 +259,8 @@ export default function App() {
               key="l0"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0, scale: 0.98 }}
-              transition={{ duration: 0.4 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.22 }}
               className="relative z-10 min-h-[calc(100dvh-64px)] flex flex-col items-center justify-center px-6 py-24 overflow-hidden"
             >
               {/* Ambient orbs — smaller blur on mobile to reduce GPU work */}
@@ -362,11 +362,12 @@ export default function App() {
                     <motion.button
                       key={c.id}
                       type="button"
-                      initial={{ opacity: 0, y: 20, scale: 0.96 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={{ delay: i * 0.065, duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.05, duration: 0.3, ease: 'easeOut' }}
+                      onPointerDown={(e) => { if (e.pointerType === 'touch') { setSelectedCountry(c.id); setLevel(2); } }}
                       onClick={() => { setSelectedCountry(c.id); setLevel(2); }}
-                      className="group relative flex flex-col p-5 sm:p-6 rounded-2xl border border-port-border hover:border-port-border-hi port-card-glow transition-all text-left active:scale-[0.98] overflow-hidden"
+                      className="group relative flex flex-col p-5 sm:p-6 rounded-2xl border border-port-border hover:border-port-border-hi port-card-glow transition-all text-left active:opacity-80 overflow-hidden"
                       style={{ background: `linear-gradient(135deg, ${accent.from} 0%, transparent 60%), #0e0e1c` }}
                     >
                       {/* Terminal ID badge */}
@@ -447,11 +448,12 @@ export default function App() {
                     <motion.button
                       key={cat.id}
                       type="button"
-                      initial={{ opacity: 0, y: 18, scale: 0.96 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={{ delay: i * 0.06, duration: 0.36, ease: [0.16, 1, 0.3, 1] }}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.04, duration: 0.28, ease: 'easeOut' }}
+                      onPointerDown={(e) => { if (e.pointerType === 'touch') { setSelectedCategory(cat.id); setLevel(3); } }}
                       onClick={() => { setSelectedCategory(cat.id); setLevel(3); }}
-                      className="group relative flex flex-col p-5 rounded-2xl border border-port-border bg-port-surface hover:border-port-accent/30 port-card-glow transition-all text-left active:scale-[0.98] overflow-hidden"
+                      className="group relative flex flex-col p-5 rounded-2xl border border-port-border bg-port-surface hover:border-port-accent/30 port-card-glow transition-all text-left active:opacity-80 overflow-hidden"
                     >
                       {/* Booth number */}
                       <div className="absolute top-3 end-3 text-[9px] text-port-faint tracking-widest font-medium">
@@ -506,10 +508,10 @@ export default function App() {
                     href={comp.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    initial={{ opacity: 0, y: 14 }}
+                    initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.07, duration: 0.36, ease: [0.16, 1, 0.3, 1] }}
-                    className="group flex items-center gap-4 p-5 rounded-2xl border border-port-border bg-port-surface hover:border-port-accent/30 port-card-glow transition-all active:scale-[0.99]"
+                    transition={{ delay: i * 0.04, duration: 0.26, ease: 'easeOut' }}
+                    className="group flex items-center gap-4 p-5 rounded-2xl border border-port-border bg-port-surface hover:border-port-accent/30 port-card-glow transition-all active:opacity-80"
                   >
                     {/* Initial */}
                     <div className="w-12 h-12 shrink-0 rounded-xl border border-port-border bg-port-surface flex items-center justify-center group-hover:bg-port-accent-bg group-hover:border-port-accent-border transition-all">
