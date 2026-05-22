@@ -64,10 +64,17 @@ export const en = {
   openUrlAria: 'Open company URL in new tab',
   defaultCategoryLabel: 'New category',
 
-  rootMapTitleSection: 'Map center title',
-  rootMapTitleLine1: 'Top line (e.g. Global)',
-  rootMapTitleLine2: 'Bottom line (e.g. Export)',
-  rootMapTitleHint: 'Shown on the home map. Saves to the cloud when you use Firebase (same debounce as network data), and to this browser otherwise.',
+  rootMapTitleSection: 'Title',
+  rootMapTitleLine1: 'Line 1 (e.g. Global)',
+  rootMapTitleLine2: 'Line 2 (e.g. Export)',
+  rootMapTitleHint: 'Edits sync to Firestore and localStorage.',
+  heroTextsSection: 'Hero texts',
+  heroTextsBadge: 'Badge (top label)',
+  heroTextsSubtitle: 'Subtitle',
+  statLabelsSection: 'Stat labels',
+  heroStat1Label: 'Stat 1 (e.g. Terminals)',
+  heroStat2Label: 'Stat 2 (e.g. Booths)',
+  heroStat3Label: 'Stat 3 (e.g. Vendors)',
 } as const;
 
 export type MessageKey = keyof typeof en;

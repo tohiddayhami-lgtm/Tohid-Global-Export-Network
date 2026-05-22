@@ -1,7 +1,12 @@
-/** Two-line label on the root node of the map (editable in admin, synced to Firestore when configured). */
+/** Two-line label on the root node + editable hero texts (synced to Firestore when configured). */
 export interface RootNodeLines {
   line1: string;
   line2: string;
+  badge?: string;
+  subtitle?: string;
+  stat1?: string;
+  stat2?: string;
+  stat3?: string;
 }
 
 export interface CompanyJson {

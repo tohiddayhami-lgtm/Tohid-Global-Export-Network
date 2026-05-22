@@ -67,6 +67,23 @@ const FlagIcon = ({ id, className = 'w-6 h-6' }: { id: string; className?: strin
           <path d="M12 6l1.5 4.5H18l-3.5 2.5 1.5 4.5-4-2.5-4 2.5 1.5-4.5L5 10.5h4.5z" />
         </svg>
       );
+    case 'germany':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3"
+          strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <rect x="4" y="7" width="16" height="10" />
+          <path d="M4 10.33h16M4 13.67h16" />
+        </svg>
+      );
+    case 'usa':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3"
+          strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <rect x="4" y="6" width="16" height="12" />
+          <path d="M4 9h16M4 12h16M4 15h16" />
+          <rect x="4" y="6" width="8" height="6" />
+        </svg>
+      );
     default:
       return <Globe className={className} />;
   }
@@ -81,9 +98,10 @@ const TERMINAL_ACCENTS: Record<string, { from: string; badge: string }> = {
   oman:    { from: '#22c55e18', badge: '#22c55e' },
   china:   { from: '#dc262618', badge: '#dc2626' },
   vietnam: { from: '#f5913218', badge: '#f59132' },
+  germany: { from: '#f0a00018', badge: '#f0a000' },
+  usa:     { from: '#3b82f618', badge: '#3b82f6' },
 };
 
-const fade = { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } };
 const fadeIn = (delay = 0) => ({
   initial: { opacity: 0 },
   animate: { opacity: 1, transition: { duration: 0.3, ease: 'easeOut', delay } },
@@ -107,7 +125,7 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const [titleModalOpen, setTitleModalOpen] = useState(false);
-  const [titleDraft, setTitleDraft] = useState({ line1: '', line2: '' });
+  const [titleDraft, setTitleDraft] = useState({ line1: '', line2: '', badge: '', subtitle: '', stat1: '', stat2: '', stat3: '' });
   const titleModalOpenRef = useRef(false);
   titleModalOpenRef.current = titleModalOpen;
 
@@ -167,10 +185,24 @@ export default function App() {
     [countries],
   );
 
+  const heroBadge    = rootNodeLines.badge?.trim()    || DEFAULT_ROOT_NODE_LINES.badge!;
+  const heroSubtitle = rootNodeLines.subtitle?.trim() || DEFAULT_ROOT_NODE_LINES.subtitle!;
+  const heroStat1    = rootNodeLines.stat1?.trim()    || DEFAULT_ROOT_NODE_LINES.stat1!;
+  const heroStat2    = rootNodeLines.stat2?.trim()    || DEFAULT_ROOT_NODE_LINES.stat2!;
+  const heroStat3    = rootNodeLines.stat3?.trim()    || DEFAULT_ROOT_NODE_LINES.stat3!;
+
   const openTitleModal = useCallback(() => {
-    setTitleDraft({ line1: rootLine1, line2: rootLine2 });
+    setTitleDraft({
+      line1: rootLine1,
+      line2: rootLine2,
+      badge:    rootNodeLines.badge?.trim()    ?? DEFAULT_ROOT_NODE_LINES.badge    ?? '',
+      subtitle: rootNodeLines.subtitle?.trim() ?? DEFAULT_ROOT_NODE_LINES.subtitle ?? '',
+      stat1:    rootNodeLines.stat1?.trim()    ?? DEFAULT_ROOT_NODE_LINES.stat1    ?? '',
+      stat2:    rootNodeLines.stat2?.trim()    ?? DEFAULT_ROOT_NODE_LINES.stat2    ?? '',
+      stat3:    rootNodeLines.stat3?.trim()    ?? DEFAULT_ROOT_NODE_LINES.stat3    ?? '',
+    });
     setTitleModalOpen(true);
-  }, [rootLine1, rootLine2]);
+  }, [rootLine1, rootLine2, rootNodeLines]);
 
   // ── Scroll-vs-tap detection ───────────────────────────────────────────────
   // Tracks whether the current touch gesture has moved significantly.
@@ -214,29 +246,25 @@ export default function App() {
 
         {/* Left: Logo or Back */}
         <div className="flex items-center gap-3 shrink-0">
-          <AnimatePresence mode="wait">
-            {level === 0 ? (
-              <motion.div key="logo" {...fade} className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full border border-port-accent/40 bg-port-accent-bg flex items-center justify-center shrink-0">
-                  <span className="font-serif text-port-accent text-base leading-none">T</span>
-                </div>
-                <span className="font-semibold text-[14px] tracking-tight hidden sm:block">
-                  Tohid Meta Port
-                </span>
-              </motion.div>
-            ) : (
-              <motion.button
-                key="back"
-                {...fade}
-                type="button"
-                onClick={goBack}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-port-border hover:border-port-border-hi hover:bg-port-surface transition-all group"
-              >
-                <ArrowLeft className="w-4 h-4 rtl:rotate-180 group-hover:-translate-x-0.5 transition-transform" />
-                <span className="text-sm font-medium">{t('back')}</span>
-              </motion.button>
-            )}
-          </AnimatePresence>
+          {level === 0 ? (
+            <div className="flex items-center gap-2.5 port-header-fade">
+              <div className="w-8 h-8 rounded-full border border-port-accent/40 bg-port-accent-bg flex items-center justify-center shrink-0">
+                <span className="font-serif text-port-accent text-base leading-none">T</span>
+              </div>
+              <span className="font-semibold text-[14px] tracking-tight hidden sm:block">
+                Tohid Meta Port
+              </span>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={goBack}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-port-border hover:border-port-border-hi hover:bg-port-surface transition-all group port-header-fade"
+            >
+              <ArrowLeft className="w-4 h-4 rtl:rotate-180 group-hover:-translate-x-0.5 transition-transform" />
+              <span className="text-sm font-medium">{t('back')}</span>
+            </button>
+          )}
         </div>
 
         {/* Center: Breadcrumb */}
@@ -307,7 +335,7 @@ export default function App() {
                 <motion.div {...fadeIn(0.05)}>
                   <div className="mb-10 inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-port-accent/25 bg-port-accent-bg text-port-accent text-[11px] font-medium tracking-[0.18em] uppercase">
                     <span className="w-1.5 h-1.5 rounded-full bg-port-accent animate-pulse" />
-                    Virtual Trade Hub
+                    {heroBadge}
                   </div>
                 </motion.div>
 
@@ -321,15 +349,15 @@ export default function App() {
 
                 {/* Subtitle */}
                 <motion.p {...fadeIn(0.16)} className="text-port-soft text-[15px] sm:text-base max-w-sm mt-6 mb-10 leading-relaxed">
-                  Explore global export markets through interactive port terminals
+                  {heroSubtitle}
                 </motion.p>
 
                 {/* Stats */}
                 <motion.div {...fadeIn(0.22)} className="flex items-center gap-8 mb-12">
                   {[
-                    { value: countries.length, label: 'Terminals' },
-                    { value: totalBooths,       label: 'Booths'     },
-                    { value: totalVendors,      label: 'Vendors'    },
+                    { value: countries.length, label: heroStat1 },
+                    { value: totalBooths,       label: heroStat2 },
+                    { value: totalVendors,      label: heroStat3 },
                   ].map((s, i) => (
                     <div key={i} className="flex flex-col items-center gap-1">
                       <span className="font-serif text-2xl text-port-ink">{s.value}</span>
@@ -592,18 +620,58 @@ export default function App() {
               <h3 className="font-serif text-lg text-port-ink pe-10">{t('editMapCenterTitle')}</h3>
               <p className="mt-1 text-[11px] text-port-soft leading-snug">{t('rootMapTitleHint')}</p>
 
-              <div className="mt-5 space-y-3">
-                {(['line1', 'line2'] as const).map((key) => (
-                  <label key={key} className="block text-xs">
-                    <span className="text-port-soft">{t(key === 'line1' ? 'rootMapTitleLine1' : 'rootMapTitleLine2')}</span>
-                    <input
-                      className="mt-1 w-full rounded-lg border border-port-border bg-port-bg px-3 py-2 text-sm text-port-ink placeholder:text-port-faint focus:outline-none focus:border-port-accent/50 transition-colors"
-                      value={titleDraft[key]}
-                      onChange={(e) => setTitleDraft((d) => ({ ...d, [key]: e.target.value }))}
-                      maxLength={80}
-                    />
-                  </label>
-                ))}
+              <div className="mt-5 max-h-[55vh] overflow-y-auto space-y-5 pr-1">
+
+                {/* Title section */}
+                <div className="space-y-3">
+                  <span className="text-[10px] text-port-faint uppercase tracking-wider">{t('rootMapTitleSection')}</span>
+                  {(['line1', 'line2'] as const).map((key) => (
+                    <label key={key} className="block text-xs">
+                      <span className="text-port-soft">{t(key === 'line1' ? 'rootMapTitleLine1' : 'rootMapTitleLine2')}</span>
+                      <input
+                        className="mt-1 w-full rounded-lg border border-port-border bg-port-bg px-3 py-2 text-sm text-port-ink placeholder:text-port-faint focus:outline-none focus:border-port-accent/50 transition-colors"
+                        value={titleDraft[key]}
+                        onChange={(e) => setTitleDraft((d) => ({ ...d, [key]: e.target.value }))}
+                        maxLength={80}
+                      />
+                    </label>
+                  ))}
+                </div>
+
+                {/* Hero texts section */}
+                <div className="space-y-3 pt-4 border-t border-port-border">
+                  <span className="text-[10px] text-port-faint uppercase tracking-wider">{t('heroTextsSection')}</span>
+                  {(['badge', 'subtitle'] as const).map((key) => (
+                    <label key={key} className="block text-xs">
+                      <span className="text-port-soft">{t(key === 'badge' ? 'heroTextsBadge' : 'heroTextsSubtitle')}</span>
+                      <input
+                        className="mt-1 w-full rounded-lg border border-port-border bg-port-bg px-3 py-2 text-sm text-port-ink placeholder:text-port-faint focus:outline-none focus:border-port-accent/50 transition-colors"
+                        value={titleDraft[key]}
+                        onChange={(e) => setTitleDraft((d) => ({ ...d, [key]: e.target.value }))}
+                        maxLength={120}
+                      />
+                    </label>
+                  ))}
+                </div>
+
+                {/* Stat labels section */}
+                <div className="space-y-3 pt-4 border-t border-port-border">
+                  <span className="text-[10px] text-port-faint uppercase tracking-wider">{t('statLabelsSection')}</span>
+                  {(['stat1', 'stat2', 'stat3'] as const).map((key) => (
+                    <label key={key} className="block text-xs">
+                      <span className="text-port-soft">
+                        {t(key === 'stat1' ? 'heroStat1Label' : key === 'stat2' ? 'heroStat2Label' : 'heroStat3Label')}
+                      </span>
+                      <input
+                        className="mt-1 w-full rounded-lg border border-port-border bg-port-bg px-3 py-2 text-sm text-port-ink placeholder:text-port-faint focus:outline-none focus:border-port-accent/50 transition-colors"
+                        value={titleDraft[key]}
+                        onChange={(e) => setTitleDraft((d) => ({ ...d, [key]: e.target.value }))}
+                        maxLength={40}
+                      />
+                    </label>
+                  ))}
+                </div>
+
               </div>
 
               <div className="mt-5 flex justify-end gap-2">
@@ -618,7 +686,15 @@ export default function App() {
                   type="button"
                   className="rounded-full bg-port-accent px-4 py-2 text-sm font-semibold text-port-bg hover:opacity-90 active:scale-[0.97] transition-all"
                   onClick={() => {
-                    setRootNodeLines({ line1: titleDraft.line1.trim(), line2: titleDraft.line2.trim() });
+                    setRootNodeLines({
+                      line1:    titleDraft.line1.trim(),
+                      line2:    titleDraft.line2.trim(),
+                      badge:    titleDraft.badge.trim()    || undefined,
+                      subtitle: titleDraft.subtitle.trim() || undefined,
+                      stat1:    titleDraft.stat1.trim()    || undefined,
+                      stat2:    titleDraft.stat2.trim()    || undefined,
+                      stat3:    titleDraft.stat3.trim()    || undefined,
+                    });
                     setTitleModalOpen(false);
                   }}
                 >

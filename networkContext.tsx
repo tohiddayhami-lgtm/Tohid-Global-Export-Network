@@ -20,8 +20,16 @@ import { firebaseApp } from './firebase.ts';
 const STORAGE_KEY = 'gen_export_network_v1';
 const ROOT_UI_STORAGE_KEY = 'gen_export_network_ui_v1';
 
-/** Default center-node title on the map (overridden from admin / Firestore). */
-export const DEFAULT_ROOT_NODE_LINES: RootNodeLines = { line1: 'Global', line2: 'Export' };
+/** Default center-node title + hero texts (overridden from admin / Firestore). */
+export const DEFAULT_ROOT_NODE_LINES: RootNodeLines = {
+  line1: 'Global',
+  line2: 'Export',
+  badge: 'Virtual Trade Hub',
+  subtitle: 'Explore global export markets through interactive port terminals',
+  stat1: 'Terminals',
+  stat2: 'Booths',
+  stat3: 'Vendors',
+};
 
 const FIRESTORE_COLLECTION = 'config';
 const FIRESTORE_DOC_ID = 'export_network';
@@ -82,6 +90,11 @@ function loadRootUiFromStorage(): RootNodeLines {
     return {
       line1: line1 || DEFAULT_ROOT_NODE_LINES.line1,
       line2: line2 || DEFAULT_ROOT_NODE_LINES.line2,
+      badge:    typeof parsed.badge    === 'string' ? parsed.badge    : undefined,
+      subtitle: typeof parsed.subtitle === 'string' ? parsed.subtitle : undefined,
+      stat1:    typeof parsed.stat1    === 'string' ? parsed.stat1    : undefined,
+      stat2:    typeof parsed.stat2    === 'string' ? parsed.stat2    : undefined,
+      stat3:    typeof parsed.stat3    === 'string' ? parsed.stat3    : undefined,
     };
   } catch {
     return { ...DEFAULT_ROOT_NODE_LINES };
@@ -97,6 +110,11 @@ function readRootLinesFromFirestoreDoc(data: Record<string, unknown>): RootNodeL
   return {
     line1: line1 || DEFAULT_ROOT_NODE_LINES.line1,
     line2: line2 || DEFAULT_ROOT_NODE_LINES.line2,
+    badge:    typeof data.rootBadge    === 'string' ? data.rootBadge    : undefined,
+    subtitle: typeof data.rootSubtitle === 'string' ? data.rootSubtitle : undefined,
+    stat1:    typeof data.rootStat1    === 'string' ? data.rootStat1    : undefined,
+    stat2:    typeof data.rootStat2    === 'string' ? data.rootStat2    : undefined,
+    stat3:    typeof data.rootStat3    === 'string' ? data.rootStat3    : undefined,
   };
 }
 
@@ -241,7 +259,12 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
         const rootFromDoc = readRootLinesFromFirestoreDoc(data);
         if (rootFromDoc) {
           const cur = rootNodeLinesRef.current;
-          if (rootFromDoc.line1 !== cur.line1 || rootFromDoc.line2 !== cur.line2) {
+          if (
+            rootFromDoc.line1    !== cur.line1    || rootFromDoc.line2    !== cur.line2    ||
+            rootFromDoc.badge    !== cur.badge    || rootFromDoc.subtitle !== cur.subtitle ||
+            rootFromDoc.stat1    !== cur.stat1    || rootFromDoc.stat2    !== cur.stat2    ||
+            rootFromDoc.stat3    !== cur.stat3
+          ) {
             setRootNodeLines(rootFromDoc);
           }
         }
@@ -365,13 +388,18 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
 
       const runSave = () => {
         const payload = JSON.stringify(networkJsonRef.current);
-        const { line1, line2 } = rootNodeLinesRef.current;
+        const { line1, line2, badge, subtitle, stat1, stat2, stat3 } = rootNodeLinesRef.current;
         void setDoc(
           ref,
           {
             payload,
-            rootLine1: line1,
-            rootLine2: line2,
+            rootLine1:    line1,
+            rootLine2:    line2,
+            rootBadge:    badge    ?? DEFAULT_ROOT_NODE_LINES.badge,
+            rootSubtitle: subtitle ?? DEFAULT_ROOT_NODE_LINES.subtitle,
+            rootStat1:    stat1    ?? DEFAULT_ROOT_NODE_LINES.stat1,
+            rootStat2:    stat2    ?? DEFAULT_ROOT_NODE_LINES.stat2,
+            rootStat3:    stat3    ?? DEFAULT_ROOT_NODE_LINES.stat3,
             updatedAt: serverTimestamp(),
             rev: increment(1),
           },

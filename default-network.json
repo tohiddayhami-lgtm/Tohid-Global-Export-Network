@@ -241,5 +241,90 @@
         ]
       }
     }
+  },
+  "germany": {
+    "id": "germany",
+    "label": "Germany",
+    "flag": "germany",
+    "anchor": { "x": -420, "y": -200 },
+    "categories": {
+      "machinery": {
+        "label": "Machinery",
+        "iconKey": "Cog",
+        "companies": [
+          { "name": "Bosch", "tag": "Engineering solutions", "initial": "B", "url": "https://bosch.com" },
+          { "name": "Siemens", "tag": "Industrial automation", "initial": "S", "url": "https://siemens.com" },
+          { "name": "KION Group", "tag": "Forklift & logistics", "initial": "K", "url": "https://kiongroup.com" }
+        ]
+      },
+      "automotive": {
+        "label": "Automotive",
+        "iconKey": "Car",
+        "companies": [
+          { "name": "BMW Group", "tag": "Premium vehicles", "initial": "B", "url": "https://bmwgroup.com" },
+          { "name": "Mercedes-Benz", "tag": "Luxury & commercial", "initial": "M", "url": "https://mercedes-benz.com" },
+          { "name": "Volkswagen", "tag": "Mass-market leader", "initial": "V", "url": "https://volkswagen.com" }
+        ]
+      },
+      "chemicals": {
+        "label": "Chemicals",
+        "iconKey": "FlaskConical",
+        "companies": [
+          { "name": "BASF", "tag": "Chemical industry giant", "initial": "B", "url": "https://basf.com" },
+          { "name": "Bayer", "tag": "Life science & crop", "initial": "B", "url": "https://bayer.com" },
+          { "name": "Evonik", "tag": "Specialty chemicals", "initial": "E", "url": "https://evonik.com" }
+        ]
+      },
+      "medical": {
+        "label": "Medical Devices",
+        "iconKey": "Pill",
+        "companies": [
+          { "name": "Fresenius", "tag": "Healthcare products", "initial": "F", "url": "https://fresenius.com" },
+          { "name": "B. Braun", "tag": "Hospital supplies", "initial": "B", "url": "https://bbraun.com" }
+        ]
+      }
+    }
+  },
+  "usa": {
+    "id": "usa",
+    "label": "USA",
+    "flag": "usa",
+    "anchor": { "x": -500, "y": -100 },
+    "categories": {
+      "technology": {
+        "label": "Technology",
+        "iconKey": "Cpu",
+        "companies": [
+          { "name": "Apple", "tag": "Consumer electronics", "initial": "A", "url": "https://apple.com" },
+          { "name": "Microsoft", "tag": "Cloud & software", "initial": "M", "url": "https://microsoft.com" },
+          { "name": "Alphabet", "tag": "Search & AI", "initial": "G", "url": "https://abc.xyz" }
+        ]
+      },
+      "aerospace": {
+        "label": "Aerospace",
+        "iconKey": "Plane",
+        "companies": [
+          { "name": "Boeing", "tag": "Commercial aircraft", "initial": "B", "url": "https://boeing.com" },
+          { "name": "Lockheed Martin", "tag": "Defense systems", "initial": "L", "url": "https://lockheedmartin.com" },
+          { "name": "Raytheon", "tag": "Missiles & radar", "initial": "R", "url": "https://rtx.com" }
+        ]
+      },
+      "agriculture": {
+        "label": "Agriculture",
+        "iconKey": "Wheat",
+        "companies": [
+          { "name": "Archer Daniels", "tag": "Grain processing", "initial": "A", "url": "https://adm.com" },
+          { "name": "Cargill", "tag": "Food & agriculture", "initial": "C", "url": "https://cargill.com" }
+        ]
+      },
+      "pharma": {
+        "label": "Pharmaceuticals",
+        "iconKey": "Pill",
+        "companies": [
+          { "name": "Pfizer", "tag": "Global biopharma", "initial": "P", "url": "https://pfizer.com" },
+          { "name": "Johnson & Johnson", "tag": "Healthcare products", "initial": "J", "url": "https://jnj.com" }
+        ]
+      }
+    }
   }
 }

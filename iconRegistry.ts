@@ -19,6 +19,7 @@ import {
   Pill,
   CircleDot,
   Car,
+  Plane,
 } from 'lucide-react';
 
 const ICONS: Record<string, LucideIcon> = {
@@ -41,6 +42,7 @@ const ICONS: Record<string, LucideIcon> = {
   Pill,
   CircleDot,
   Car,
+  Plane,
 };
 
 export const ICON_KEYS = Object.keys(ICONS).sort();
