@@ -84,9 +84,15 @@ const TERMINAL_ACCENTS: Record<string, { from: string; badge: string }> = {
 };
 
 const fade = { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } };
+const fadeIn = (delay = 0) => ({
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { duration: 0.3, ease: 'easeOut', delay } },
+  exit: { opacity: 0, transition: { duration: 0.18 } },
+});
+// slideUp only used for level containers (l1, l2, l3) — not nested inside another animated parent
 const slideUp = (delay = 0) => ({
-  initial: { opacity: 0, y: 10 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94], delay } },
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.32, ease: [0.25, 0.46, 0.45, 0.94], delay } },
   exit: { opacity: 0, transition: { duration: 0.18 } },
 });
 
@@ -273,7 +279,7 @@ export default function App() {
               <div className="relative z-10 flex flex-col items-center text-center max-w-2xl w-full">
 
                 {/* Badge */}
-                <motion.div {...slideUp(0.05)}>
+                <motion.div {...fadeIn(0.05)}>
                   <div className="mb-10 inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-port-accent/25 bg-port-accent-bg text-port-accent text-[11px] font-medium tracking-[0.18em] uppercase">
                     <span className="w-1.5 h-1.5 rounded-full bg-port-accent animate-pulse" />
                     Virtual Trade Hub
@@ -281,7 +287,7 @@ export default function App() {
                 </motion.div>
 
                 {/* Title */}
-                <motion.div {...slideUp(0.12)}>
+                <motion.div {...fadeIn(0.1)}>
                   <h1 className="font-serif leading-[0.88] tracking-tight mb-2">
                     <span className="block text-[clamp(3.5rem,12vw,7rem)] text-port-ink">{rootLine1}</span>
                     <span className="block text-[clamp(3.5rem,12vw,7rem)] text-port-accent">{rootLine2}</span>
@@ -289,12 +295,12 @@ export default function App() {
                 </motion.div>
 
                 {/* Subtitle */}
-                <motion.p {...slideUp(0.2)} className="text-port-soft text-[15px] sm:text-base max-w-sm mt-6 mb-10 leading-relaxed">
+                <motion.p {...fadeIn(0.16)} className="text-port-soft text-[15px] sm:text-base max-w-sm mt-6 mb-10 leading-relaxed">
                   Explore global export markets through interactive port terminals
                 </motion.p>
 
                 {/* Stats */}
-                <motion.div {...slideUp(0.27)} className="flex items-center gap-8 mb-12">
+                <motion.div {...fadeIn(0.22)} className="flex items-center gap-8 mb-12">
                   {[
                     { value: countries.length, label: 'Terminals' },
                     { value: totalBooths,       label: 'Booths'     },
@@ -308,11 +314,10 @@ export default function App() {
                 </motion.div>
 
                 {/* Enter CTA */}
-                <motion.div {...slideUp(0.33)} className="flex flex-col items-center gap-3">
+                <motion.div {...fadeIn(0.28)} className="flex flex-col items-center gap-3">
                   <button
                     type="button"
                     onClick={() => setLevel(1)}
-                    onPointerDown={(e) => { if (e.pointerType === 'touch') setLevel(1); }}
                     className="port-enter-btn group flex items-center gap-2.5 px-8 py-4 min-h-[52px] rounded-full bg-port-accent text-port-bg font-semibold text-[15px] tracking-wide hover:bg-port-accent/90 active:opacity-80 transition-opacity"
                   >
                     Enter Port
@@ -362,10 +367,9 @@ export default function App() {
                     <motion.button
                       key={c.id}
                       type="button"
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.05, duration: 0.3, ease: 'easeOut' }}
-                      onPointerDown={(e) => { if (e.pointerType === 'touch') { setSelectedCountry(c.id); setLevel(2); } }}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: i * 0.04, duration: 0.25, ease: 'easeOut' }}
                       onClick={() => { setSelectedCountry(c.id); setLevel(2); }}
                       className="group relative flex flex-col p-5 sm:p-6 rounded-2xl border border-port-border hover:border-port-border-hi port-card-glow transition-all text-left active:opacity-80 overflow-hidden"
                       style={{ background: `linear-gradient(135deg, ${accent.from} 0%, transparent 60%), #0e0e1c` }}
@@ -448,10 +452,9 @@ export default function App() {
                     <motion.button
                       key={cat.id}
                       type="button"
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.04, duration: 0.28, ease: 'easeOut' }}
-                      onPointerDown={(e) => { if (e.pointerType === 'touch') { setSelectedCategory(cat.id); setLevel(3); } }}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: i * 0.04, duration: 0.25, ease: 'easeOut' }}
                       onClick={() => { setSelectedCategory(cat.id); setLevel(3); }}
                       className="group relative flex flex-col p-5 rounded-2xl border border-port-border bg-port-surface hover:border-port-accent/30 port-card-glow transition-all text-left active:opacity-80 overflow-hidden"
                     >
@@ -508,9 +511,9 @@ export default function App() {
                     href={comp.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.04, duration: 0.26, ease: 'easeOut' }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: i * 0.04, duration: 0.25, ease: 'easeOut' }}
                     className="group flex items-center gap-4 p-5 rounded-2xl border border-port-border bg-port-surface hover:border-port-accent/30 port-card-glow transition-all active:opacity-80"
                   >
                     {/* Initial */}
