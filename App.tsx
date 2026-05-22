@@ -172,6 +172,31 @@ export default function App() {
     setTitleModalOpen(true);
   }, [rootLine1, rootLine2]);
 
+  // ── Scroll-vs-tap detection ───────────────────────────────────────────────
+  // Tracks whether the current touch gesture has moved significantly.
+  // Cards check this ref in onClick so a scroll that lifts over a card
+  // does NOT trigger navigation.
+  const touchStartYRef = useRef(0);
+  const touchScrolledRef = useRef(false);
+
+  useEffect(() => {
+    const onStart = (e: TouchEvent) => {
+      touchStartYRef.current = e.touches[0].clientY;
+      touchScrolledRef.current = false;
+    };
+    const onMove = (e: TouchEvent) => {
+      if (Math.abs(e.touches[0].clientY - touchStartYRef.current) > 8) {
+        touchScrolledRef.current = true;
+      }
+    };
+    window.addEventListener('touchstart', onStart, { passive: true });
+    window.addEventListener('touchmove', onMove, { passive: true });
+    return () => {
+      window.removeEventListener('touchstart', onStart);
+      window.removeEventListener('touchmove', onMove);
+    };
+  }, []);
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -364,14 +389,11 @@ export default function App() {
                 {countries.map((c, i) => {
                   const accent = TERMINAL_ACCENTS[c.flag || c.id] ?? TERMINAL_ACCENTS.iran;
                   return (
-                    <motion.button
+                    <button
                       key={c.id}
                       type="button"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: i * 0.04, duration: 0.25, ease: 'easeOut' }}
-                      onClick={() => { setSelectedCountry(c.id); setLevel(2); }}
-                      className="group relative flex flex-col p-5 sm:p-6 rounded-2xl border border-port-border hover:border-port-border-hi port-card-glow transition-all text-left active:opacity-80 overflow-hidden"
+                      onClick={() => { if (!touchScrolledRef.current) { setSelectedCountry(c.id); setLevel(2); } }}
+                      className="group relative flex flex-col p-5 sm:p-6 rounded-2xl border border-port-border hover:border-port-border-hi port-card-glow transition-colors text-left active:opacity-70 overflow-hidden"
                       style={{ background: `linear-gradient(135deg, ${accent.from} 0%, transparent 60%), #0e0e1c` }}
                     >
                       {/* Terminal ID badge */}
@@ -411,7 +433,7 @@ export default function App() {
                         className="absolute inset-x-0 bottom-0 h-px opacity-0 group-hover:opacity-100 transition-opacity"
                         style={{ background: `linear-gradient(90deg, transparent, ${accent.badge}60, transparent)` }}
                       />
-                    </motion.button>
+                    </button>
                   );
                 })}
               </div>
@@ -449,14 +471,11 @@ export default function App() {
                 {categories.map((cat, i) => {
                   const Icon = cat.icon as LucideIcon;
                   return (
-                    <motion.button
+                    <button
                       key={cat.id}
                       type="button"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: i * 0.04, duration: 0.25, ease: 'easeOut' }}
-                      onClick={() => { setSelectedCategory(cat.id); setLevel(3); }}
-                      className="group relative flex flex-col p-5 rounded-2xl border border-port-border bg-port-surface hover:border-port-accent/30 port-card-glow transition-all text-left active:opacity-80 overflow-hidden"
+                      onClick={() => { if (!touchScrolledRef.current) { setSelectedCategory(cat.id); setLevel(3); } }}
+                      className="group relative flex flex-col p-5 rounded-2xl border border-port-border bg-port-surface hover:border-port-accent/30 port-card-glow transition-colors text-left active:opacity-70 overflow-hidden"
                     >
                       {/* Booth number */}
                       <div className="absolute top-3 end-3 text-[9px] text-port-faint tracking-widest font-medium">
@@ -475,7 +494,7 @@ export default function App() {
 
                       {/* Hover line */}
                       <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-port-accent/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </motion.button>
+                    </button>
                   );
                 })}
               </div>
@@ -506,15 +525,12 @@ export default function App() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {companies.map((comp, i) => (
-                  <motion.a
+                  <a
                     key={`${comp.name}-${i}`}
                     href={comp.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: i * 0.04, duration: 0.25, ease: 'easeOut' }}
-                    className="group flex items-center gap-4 p-5 rounded-2xl border border-port-border bg-port-surface hover:border-port-accent/30 port-card-glow transition-all active:opacity-80"
+                    className="group flex items-center gap-4 p-5 rounded-2xl border border-port-border bg-port-surface hover:border-port-accent/30 port-card-glow transition-colors active:opacity-70"
                   >
                     {/* Initial */}
                     <div className="w-12 h-12 shrink-0 rounded-xl border border-port-border bg-port-surface flex items-center justify-center group-hover:bg-port-accent-bg group-hover:border-port-accent-border transition-all">
@@ -536,7 +552,7 @@ export default function App() {
                       className="w-4 h-4 text-port-faint group-hover:text-port-accent shrink-0 transition-all group-hover:scale-110"
                       strokeWidth={1.5}
                     />
-                  </motion.a>
+                  </a>
                 ))}
               </div>
             </motion.div>
