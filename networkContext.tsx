@@ -118,12 +118,24 @@ function readRootLinesFromFirestoreDoc(data: Record<string, unknown>): RootNodeL
   };
 }
 
+/** Add any countries present in the default JSON but missing from `current`. */
+function mergeDefaultCountries(current: ExportNetworkJson): ExportNetworkJson {
+  const defaults = defaultNetworkJson as ExportNetworkJson;
+  let merged = current;
+  for (const [id, country] of Object.entries(defaults)) {
+    if (!(id in merged)) {
+      merged = { ...merged, [id]: country };
+    }
+  }
+  return merged;
+}
+
 function loadFromStorage(): ExportNetworkJson {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return structuredClone(defaultNetworkJson as ExportNetworkJson);
     const parsed: unknown = JSON.parse(raw);
-    if (validateNetwork(parsed)) return parsed;
+    if (validateNetwork(parsed)) return mergeDefaultCountries(parsed);
   } catch {
     /* ignore */
   }
@@ -285,7 +297,8 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        const incoming = JSON.stringify(parsed);
+        const parsedMerged = mergeDefaultCountries(parsed as ExportNetworkJson);
+        const incoming = JSON.stringify(parsedMerged);
         const samePayload = incoming === JSON.stringify(networkJsonRef.current);
 
         if (revNum === null) {
@@ -304,7 +317,7 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
           lastAppliedServerUpdatedAtMsRef.current = Math.max(lastAppliedServerUpdatedAtMsRef.current, updMs);
         }
         if (!samePayload) {
-          setNetworkJson(structuredClone(parsed));
+          setNetworkJson(structuredClone(parsedMerged));
         }
         setRemoteReady(true);
       };
