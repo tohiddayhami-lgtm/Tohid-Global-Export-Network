@@ -8,6 +8,7 @@ export interface Category {
   label: string;
   icon: LucideIcon;
   companies: Company[];
+  hidden: boolean;
 }
 
 export interface Country {
@@ -35,6 +36,7 @@ function hydrateCountry(c: CountryJson): Country {
       label: cat.label,
       icon: getIconByKey(cat.iconKey || 'CircleDot'),
       companies: (cat.companies ?? []).map((co) => ({ ...co })),
+      hidden: cat.hidden === true,
     };
   }
   return {

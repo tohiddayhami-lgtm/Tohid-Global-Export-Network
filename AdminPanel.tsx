@@ -1,10 +1,18 @@
 import { useCallback, useEffect, useMemo, useState, type ChangeEventHandler, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { LogOut, Plus, Save, Trash2, Upload, Download, RotateCcw, ExternalLink } from 'lucide-react';
+import { Download, ExternalLink, Eye, EyeOff, Image, LogOut, Plus, RotateCcw, Save, Trash2, Upload } from 'lucide-react';
 import type { CategoryJson, CompanyJson, CountryJson } from './networkTypes.ts';
 import { ICON_KEYS } from './iconRegistry.ts';
-import { defaultNetworkClone, DEFAULT_ROOT_NODE_LINES, useExportData, validateNetwork } from './networkContext.tsx';
+import {
+  defaultNetworkClone,
+  DEFAULT_FAVICON_HREF,
+  DEFAULT_ROOT_NODE_LINES,
+  useExportData,
+  validateNetwork,
+} from './networkContext.tsx';
 import { useLocale } from './i18n/LocaleContext.tsx';
+
+const MAX_FAVICON_BYTES = 256 * 1024;
 
 function openCompanyUrlInNewTab(raw: string, invalidMessage: string) {
   const t = raw.trim();
@@ -56,7 +64,7 @@ function emptyCompany(): CompanyJson {
 }
 
 function emptyCategory(label: string): CategoryJson {
-  return { label, iconKey: 'CircleDot', companies: [emptyCompany()] };
+  return { label, iconKey: 'CircleDot', companies: [emptyCompany()], hidden: false };
 }
 
 function emptyCountry(id: string, defaultCategoryLabel: string): CountryJson {
@@ -82,10 +90,11 @@ export default function AdminPanel() {
   const [draftLine2, setDraftLine2] = useState(rootNodeLines.line2);
 
   const saveRootTitle = () => {
-    setRootNodeLines({
+    setRootNodeLines((prev) => ({
+      ...prev,
       line1: draftLine1.trim() || DEFAULT_ROOT_NODE_LINES.line1,
       line2: draftLine2.trim() || DEFAULT_ROOT_NODE_LINES.line2,
-    });
+    }));
   };
 
   const countryIds = useMemo(() => Object.keys(networkJson), [networkJson]);
@@ -298,6 +307,24 @@ export default function AdminPanel() {
     e.target.value = '';
   };
 
+  const uploadFavicon: ChangeEventHandler<HTMLInputElement> = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const isImage = f.type.startsWith('image/') || /\.ico$/i.test(f.name);
+    if (!isImage || f.size > MAX_FAVICON_BYTES) {
+      window.alert(t('faviconInvalidFile'));
+      e.target.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== 'string') return;
+      setRootNodeLines((prev) => ({ ...prev, faviconHref: reader.result as string }));
+    };
+    reader.readAsDataURL(f);
+    e.target.value = '';
+  };
+
   const resetDefault = () => {
     if (!window.confirm(t('confirmReset'))) return;
     const d = defaultNetworkClone();
@@ -466,6 +493,40 @@ export default function AdminPanel() {
             </div>
           </section>
 
+          <section className="rounded-xl border border-border bg-white p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="font-medium">{t('faviconSection')}</h2>
+              <div className="w-12 h-12 rounded-xl border border-border bg-hover flex items-center justify-center overflow-hidden">
+                <img
+                  src={rootNodeLines.faviconHref || DEFAULT_FAVICON_HREF}
+                  alt=""
+                  className="w-9 h-9 object-contain"
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-ink-soft leading-snug">{t('faviconHint')}</p>
+            <div className="flex flex-wrap gap-2">
+              <label className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium cursor-pointer hover:bg-hover">
+                <Image className="w-3.5 h-3.5" />
+                {t('faviconUpload')}
+                <input
+                  type="file"
+                  accept="image/svg+xml,image/png,image/jpeg,image/webp,image/x-icon,.ico"
+                  className="hidden"
+                  onChange={uploadFavicon}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => setRootNodeLines((prev) => ({ ...prev, faviconHref: DEFAULT_FAVICON_HREF }))}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-hover"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                {t('faviconReset')}
+              </button>
+            </div>
+          </section>
+
           {country && (
             <>
             <section className="rounded-xl border border-border bg-white p-4 space-y-3">
@@ -537,10 +598,17 @@ export default function AdminPanel() {
                     type="button"
                     onClick={() => setSelCat(cid)}
                     className={`rounded-full px-3 py-1 text-sm border ${
-                      selCat === cid ? 'border-ink bg-ink text-white' : 'border-border hover:bg-hover'
+                      selCat === cid
+                        ? 'border-ink bg-ink text-white'
+                        : country.categories[cid].hidden
+                          ? 'border-border bg-hover text-ink-soft'
+                          : 'border-border hover:bg-hover'
                     }`}
                   >
-                    {cid}
+                    <span className="inline-flex items-center gap-1.5">
+                      {country.categories[cid].hidden && <EyeOff className="w-3 h-3" />}
+                      {cid}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -550,15 +618,40 @@ export default function AdminPanel() {
               <section className="rounded-xl border border-border bg-white p-4 space-y-4">
                 <div className="flex justify-between items-center">
                   <h2 className="font-medium">{t('categoryHeading', { id: selCat })}</h2>
-                  <button
-                    type="button"
-                    onClick={() => removeCategory(selCat)}
-                    className="text-red-600 p-1 rounded hover:bg-red-50"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => updateCategory(selCat, { hidden: !activeCat.hidden })}
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium ${
+                        activeCat.hidden
+                          ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
+                          : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                      }`}
+                    >
+                      {activeCat.hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      {activeCat.hidden ? t('hiddenOnSite') : t('visibleOnSite')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeCategory(selCat)}
+                      className="text-red-600 p-1 rounded hover:bg-red-50"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
                 <div className="grid sm:grid-cols-2 gap-3">
+                  <div className="sm:col-span-2 rounded-lg border border-border bg-hover px-3 py-2 text-xs text-ink-soft flex flex-wrap items-center justify-between gap-2">
+                    <span>{t('categoryVisibility')}</span>
+                    <button
+                      type="button"
+                      onClick={() => updateCategory(selCat, { hidden: !activeCat.hidden })}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-white border border-border px-3 py-1 text-xs text-ink hover:bg-hover"
+                    >
+                      {activeCat.hidden ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                      {activeCat.hidden ? t('showCategory') : t('hideCategory')}
+                    </button>
+                  </div>
                   <label className="text-xs sm:col-span-2">
                     <span className="text-ink-soft">{t('label')}</span>
                     <input

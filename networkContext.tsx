@@ -19,6 +19,7 @@ import { firebaseApp } from './firebase.ts';
 
 const STORAGE_KEY = 'gen_export_network_v1';
 const ROOT_UI_STORAGE_KEY = 'gen_export_network_ui_v1';
+export const DEFAULT_FAVICON_HREF = '/favicon.svg?v=container-1';
 
 /** Default center-node title + hero texts (overridden from admin / Firestore). */
 export const DEFAULT_ROOT_NODE_LINES: RootNodeLines = {
@@ -29,6 +30,7 @@ export const DEFAULT_ROOT_NODE_LINES: RootNodeLines = {
   stat1: 'Terminals',
   stat2: 'Booths',
   stat3: 'Vendors',
+  faviconHref: DEFAULT_FAVICON_HREF,
 };
 
 const FIRESTORE_COLLECTION = 'config';
@@ -68,6 +70,7 @@ export function validateNetwork(data: unknown): data is ExportNetworkJson {
     for (const [, cat] of Object.entries(c.categories)) {
       if (!isRecord(cat)) return false;
       if (typeof cat.label !== 'string' || typeof cat.iconKey !== 'string') return false;
+      if ('hidden' in cat && typeof cat.hidden !== 'boolean') return false;
       if (!Array.isArray(cat.companies)) return false;
       for (const co of cat.companies) {
         if (!isRecord(co)) return false;
@@ -95,6 +98,10 @@ function loadRootUiFromStorage(): RootNodeLines {
       stat1:    typeof parsed.stat1    === 'string' ? parsed.stat1    : undefined,
       stat2:    typeof parsed.stat2    === 'string' ? parsed.stat2    : undefined,
       stat3:    typeof parsed.stat3    === 'string' ? parsed.stat3    : undefined,
+      faviconHref:
+        typeof parsed.faviconHref === 'string' && parsed.faviconHref.trim() !== ''
+          ? parsed.faviconHref
+          : DEFAULT_FAVICON_HREF,
     };
   } catch {
     return { ...DEFAULT_ROOT_NODE_LINES };
@@ -104,7 +111,8 @@ function loadRootUiFromStorage(): RootNodeLines {
 function readRootLinesFromFirestoreDoc(data: Record<string, unknown>): RootNodeLines | null {
   const hasR1 = Object.prototype.hasOwnProperty.call(data, 'rootLine1');
   const hasR2 = Object.prototype.hasOwnProperty.call(data, 'rootLine2');
-  if (!hasR1 && !hasR2) return null;
+  const hasFavicon = Object.prototype.hasOwnProperty.call(data, 'rootFaviconHref');
+  if (!hasR1 && !hasR2 && !hasFavicon) return null;
   const line1 = typeof data.rootLine1 === 'string' ? data.rootLine1.trim() : '';
   const line2 = typeof data.rootLine2 === 'string' ? data.rootLine2.trim() : '';
   return {
@@ -115,6 +123,10 @@ function readRootLinesFromFirestoreDoc(data: Record<string, unknown>): RootNodeL
     stat1:    typeof data.rootStat1    === 'string' ? data.rootStat1    : undefined,
     stat2:    typeof data.rootStat2    === 'string' ? data.rootStat2    : undefined,
     stat3:    typeof data.rootStat3    === 'string' ? data.rootStat3    : undefined,
+    faviconHref:
+      typeof data.rootFaviconHref === 'string' && data.rootFaviconHref.trim() !== ''
+        ? data.rootFaviconHref
+        : DEFAULT_FAVICON_HREF,
   };
 }
 
@@ -275,7 +287,7 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
             rootFromDoc.line1    !== cur.line1    || rootFromDoc.line2    !== cur.line2    ||
             rootFromDoc.badge    !== cur.badge    || rootFromDoc.subtitle !== cur.subtitle ||
             rootFromDoc.stat1    !== cur.stat1    || rootFromDoc.stat2    !== cur.stat2    ||
-            rootFromDoc.stat3    !== cur.stat3
+            rootFromDoc.stat3    !== cur.stat3    || rootFromDoc.faviconHref !== cur.faviconHref
           ) {
             setRootNodeLines(rootFromDoc);
           }
@@ -381,6 +393,19 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
     }
   }, [rootNodeLines, remoteReady]);
 
+  useEffect(() => {
+    const href = rootNodeLines.faviconHref?.trim() || DEFAULT_FAVICON_HREF;
+    let link = document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'icon';
+      document.head.appendChild(link);
+    }
+    const dataType = href.match(/^data:([^;,]+)/)?.[1];
+    link.type = dataType || 'image/svg+xml';
+    link.href = href;
+  }, [rootNodeLines.faviconHref]);
+
   // Cloud save — firebase/firestore loaded lazily; timer tracked via closure vars
   useEffect(() => {
     if (!firebaseApp || !firebaseUser || !remoteReady) {
@@ -389,7 +414,7 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
     }
 
     let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
+    let timer: number | null = null;
     let pendingSave: (() => void) | null = null;
     let removePageHide: (() => void) | null = null;
 
@@ -401,7 +426,7 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
 
       const runSave = () => {
         const payload = JSON.stringify(networkJsonRef.current);
-        const { line1, line2, badge, subtitle, stat1, stat2, stat3 } = rootNodeLinesRef.current;
+        const { line1, line2, badge, subtitle, stat1, stat2, stat3, faviconHref } = rootNodeLinesRef.current;
         void setDoc(
           ref,
           {
@@ -413,6 +438,7 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
             rootStat1:    stat1    ?? DEFAULT_ROOT_NODE_LINES.stat1,
             rootStat2:    stat2    ?? DEFAULT_ROOT_NODE_LINES.stat2,
             rootStat3:    stat3    ?? DEFAULT_ROOT_NODE_LINES.stat3,
+            rootFaviconHref: faviconHref ?? DEFAULT_FAVICON_HREF,
             updatedAt: serverTimestamp(),
             rev: increment(1),
           },

@@ -7,6 +7,7 @@ export interface RootNodeLines {
   stat1?: string;
   stat2?: string;
   stat3?: string;
+  faviconHref?: string;
 }
 
 export interface CompanyJson {
@@ -20,6 +21,7 @@ export interface CategoryJson {
   label: string;
   iconKey: string;
   companies: CompanyJson[];
+  hidden?: boolean;
 }
 
 export interface CountryJson {

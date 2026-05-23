@@ -10,6 +10,7 @@ import {
   Search, ArrowRight, ArrowLeft, Globe, Settings2, Pencil, X, ExternalLink,
   type LucideIcon,
 } from 'lucide-react';
+import type { Category } from './hydrateNetwork.ts';
 import { DEFAULT_ROOT_NODE_LINES, useExportData } from './networkContext.tsx';
 import { useLocale } from './i18n/LocaleContext.tsx';
 
@@ -162,18 +163,37 @@ export default function App() {
   // ── Data ──────────────────────────────────────────────────────────────────
 
   const countries = useMemo(() => Object.values(exportData), [exportData]);
+  const selectedCountryData = selectedCountry ? exportData[selectedCountry] : undefined;
 
   const categories = useMemo(() => {
-    if (!selectedCountry) return [];
-    return Object.entries(exportData[selectedCountry].categories)
+    if (!selectedCountryData) return [];
+    return (Object.entries(selectedCountryData.categories) as [string, Category][])
+      .filter(([, cat]) => !cat.hidden)
       .sort(([a], [b]) => a.localeCompare(b, 'en', { sensitivity: 'base', numeric: true }))
       .map(([id, cat]) => ({ id, label: cat.label, icon: cat.icon, companies: cat.companies }));
-  }, [selectedCountry, exportData]);
+  }, [selectedCountryData]);
 
   const companies = useMemo(() => {
-    if (!selectedCountry || !selectedCategory) return [];
-    return exportData[selectedCountry].categories[selectedCategory].companies;
-  }, [selectedCountry, selectedCategory, exportData]);
+    if (!selectedCountryData || !selectedCategory) return [];
+    const cat = selectedCountryData.categories[selectedCategory];
+    if (!cat || cat.hidden) return [];
+    return cat.companies;
+  }, [selectedCountryData, selectedCategory]);
+
+  useEffect(() => {
+    if (selectedCountry && !exportData[selectedCountry]) {
+      setSelectedCountry(null);
+      setSelectedCategory(null);
+      setLevel(1);
+      return;
+    }
+    if (!selectedCountryData || !selectedCategory) return;
+    const cat = selectedCountryData.categories[selectedCategory];
+    if (!cat || cat.hidden) {
+      setSelectedCategory(null);
+      if (level === 3) setLevel(2);
+    }
+  }, [exportData, level, selectedCountry, selectedCategory, selectedCountryData]);
 
   const rootLine1 = useMemo(
     () => rootNodeLines.line1.trim() || DEFAULT_ROOT_NODE_LINES.line1,
@@ -185,12 +205,12 @@ export default function App() {
   );
 
   const totalBooths = useMemo(
-    () => countries.reduce((n, c) => n + Object.keys(c.categories).length, 0),
+    () => countries.reduce((n, c) => n + (Object.values(c.categories) as Category[]).filter((cat) => !cat.hidden).length, 0),
     [countries],
   );
   const totalVendors = useMemo(
     () => countries.reduce(
-      (n, c) => n + Object.values(c.categories).reduce((m, cat) => m + cat.companies.length, 0), 0,
+      (n, c) => n + (Object.values(c.categories) as Category[]).reduce((m, cat) => (cat.hidden ? m : m + cat.companies.length), 0), 0,
     ),
     [countries],
   );
@@ -426,6 +446,7 @@ export default function App() {
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                 {countries.map((c, i) => {
                   const accent = TERMINAL_ACCENTS[c.flag || c.id] ?? TERMINAL_ACCENTS.iran;
+                  const visibleBoothCount = (Object.values(c.categories) as Category[]).filter((cat) => !cat.hidden).length;
                   return (
                     <button
                       key={c.id}
@@ -458,7 +479,7 @@ export default function App() {
                         {c.label}
                       </h3>
                       <p className="text-[11px] text-port-soft">
-                        {Object.keys(c.categories).length} {Object.keys(c.categories).length === 1 ? 'booth' : 'booths'}
+                        {visibleBoothCount} {visibleBoothCount === 1 ? 'booth' : 'booths'}
                       </p>
 
                       {/* Arrow */}
@@ -704,6 +725,7 @@ export default function App() {
                       stat1:    titleDraft.stat1.trim()    || undefined,
                       stat2:    titleDraft.stat2.trim()    || undefined,
                       stat3:    titleDraft.stat3.trim()    || undefined,
+                      faviconHref: rootNodeLines.faviconHref,
                     });
                     setTitleModalOpen(false);
                   }}
