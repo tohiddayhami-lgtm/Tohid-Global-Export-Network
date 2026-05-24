@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ChangeEventHandler, type FormEvent, type SetStateAction } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ChangeEventHandler, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowDown,
@@ -8,17 +8,14 @@ import {
   Eye,
   EyeOff,
   Image,
-  Layers3,
   LogOut,
   Plus,
-  Redo2,
   RotateCcw,
   Save,
   Trash2,
-  Undo2,
   Upload,
 } from 'lucide-react';
-import type { CategoryJson, CompanyJson, CountryJson, ExportNetworkJson } from './networkTypes.ts';
+import type { CategoryJson, CompanyJson, CountryJson } from './networkTypes.ts';
 import { ICON_KEYS } from './iconRegistry.ts';
 import {
   defaultNetworkClone,
@@ -30,7 +27,6 @@ import {
 import { useLocale } from './i18n/LocaleContext.tsx';
 
 const MAX_FAVICON_BYTES = 256 * 1024;
-const HISTORY_LIMIT = 50;
 
 function openCompanyUrlInNewTab(raw: string, invalidMessage: string) {
   const t = raw.trim();
@@ -91,7 +87,7 @@ function emptyCompany(): CompanyJson {
 }
 
 function emptyCategory(label: string): CategoryJson {
-  return { label, iconKey: 'CircleDot', companies: [emptyCompany()], hidden: false, subcategories: {} };
+  return { label, iconKey: 'CircleDot', companies: [emptyCompany()], hidden: false };
 }
 
 function emptyCountry(id: string, defaultCategoryLabel: string): CountryJson {
@@ -111,10 +107,6 @@ export default function AdminPanel() {
   const [user, setUser] = useState('');
   const [pass, setPass] = useState('');
   const [err, setErr] = useState('');
-  const [history, setHistory] = useState<{ past: ExportNetworkJson[]; future: ExportNetworkJson[] }>({
-    past: [],
-    future: [],
-  });
 
   // Local draft — completely isolated from context/Firestore until user clicks Save
   const [draftLine1, setDraftLine1] = useState(rootNodeLines.line1);
@@ -131,50 +123,9 @@ export default function AdminPanel() {
   const countryIds = useMemo(() => Object.keys(networkJson), [networkJson]);
   const [selCountry, setSelCountry] = useState<string>(() => countryIds[0] ?? '');
   const [selCat, setSelCat] = useState<string>('');
-  const [selSubCat, setSelSubCat] = useState<string>('');
 
   const country = selCountry && networkJson[selCountry] ? networkJson[selCountry] : undefined;
   const catKeys = useMemo(() => (country ? Object.keys(country.categories) : []), [country]);
-  const activeCat = selCat && country ? country.categories[selCat] : undefined;
-  const subCatKeys = useMemo(() => (activeCat?.subcategories ? Object.keys(activeCat.subcategories) : []), [activeCat]);
-  const activeEditCat = selSubCat && activeCat?.subcategories?.[selSubCat] ? activeCat.subcategories[selSubCat] : activeCat;
-
-  const applyNetworkChange = useCallback(
-    (change: SetStateAction<ExportNetworkJson>) => {
-      setNetworkJson((prev) => {
-        const next = typeof change === 'function' ? (change as (current: ExportNetworkJson) => ExportNetworkJson)(prev) : change;
-        if (next === prev || JSON.stringify(next) === JSON.stringify(prev)) return prev;
-        setHistory((h) => ({
-          past: [...h.past.slice(-(HISTORY_LIMIT - 1)), structuredClone(prev)],
-          future: [],
-        }));
-        return next;
-      });
-    },
-    [setNetworkJson]
-  );
-
-  const undoNetwork = useCallback(() => {
-    const previous = history.past.at(-1);
-    if (!previous) return;
-    setHistory((h) => ({
-      past: h.past.slice(0, -1),
-      future: [structuredClone(networkJson), ...h.future].slice(0, HISTORY_LIMIT),
-    }));
-    setNetworkJson(structuredClone(previous));
-    flushNetworkToCloudSoon();
-  }, [flushNetworkToCloudSoon, history, networkJson, setNetworkJson]);
-
-  const redoNetwork = useCallback(() => {
-    const next = history.future[0];
-    if (!next) return;
-    setHistory((h) => ({
-      past: [...h.past.slice(-(HISTORY_LIMIT - 1)), structuredClone(networkJson)],
-      future: h.future.slice(1),
-    }));
-    setNetworkJson(structuredClone(next));
-    flushNetworkToCloudSoon();
-  }, [flushNetworkToCloudSoon, history, networkJson, setNetworkJson]);
 
   /** After refresh or when Firestore replaces data, keep selection aligned with real keys. */
   useEffect(() => {
@@ -182,24 +133,17 @@ export default function AdminPanel() {
     if (ids.length === 0) {
       setSelCountry('');
       setSelCat('');
-      setSelSubCat('');
       return;
     }
     if (!selCountry || !networkJson[selCountry]) {
       setSelCountry(ids[0]!);
       setSelCat('');
-      setSelSubCat('');
       return;
     }
     if (selCat && !networkJson[selCountry].categories[selCat]) {
       setSelCat('');
-      setSelSubCat('');
-      return;
     }
-    if (selCat && selSubCat && !networkJson[selCountry].categories[selCat]?.subcategories?.[selSubCat]) {
-      setSelSubCat('');
-    }
-  }, [networkJson, selCountry, selCat, selSubCat]);
+  }, [networkJson, selCountry, selCat]);
 
   const onLogin = async (e: FormEvent) => {
     e.preventDefault();
@@ -211,7 +155,7 @@ export default function AdminPanel() {
   const updateCountry = useCallback(
     (patch: Partial<CountryJson>) => {
       if (!selCountry) return;
-      applyNetworkChange((prev) => {
+      setNetworkJson((prev) => {
         const cur = prev[selCountry];
         if (!cur) return prev;
         return {
@@ -220,13 +164,13 @@ export default function AdminPanel() {
         };
       });
     },
-    [applyNetworkChange, selCountry]
+    [selCountry, setNetworkJson]
   );
 
   const updateCategory = useCallback(
     (catId: string, patch: Partial<CategoryJson>) => {
       if (!selCountry) return;
-      applyNetworkChange((prev) => {
+      setNetworkJson((prev) => {
         const c = prev[selCountry];
         if (!c?.categories[catId]) return prev;
         const next = { ...c.categories[catId], ...patch };
@@ -239,24 +183,24 @@ export default function AdminPanel() {
         };
       });
     },
-    [applyNetworkChange, selCountry]
+    [selCountry, setNetworkJson]
   );
 
   const moveCountry = useCallback(
     (countryId: string, direction: -1 | 1) => {
-      applyNetworkChange((prev) => {
+      setNetworkJson((prev) => {
         if (!prev[countryId]) return prev;
         return moveKeyInRecord(prev, countryId, direction);
       });
       setSelCountry(countryId);
     },
-    [applyNetworkChange]
+    [setNetworkJson]
   );
 
   const moveCategory = useCallback(
     (catId: string, direction: -1 | 1) => {
       if (!selCountry) return;
-      applyNetworkChange((prev) => {
+      setNetworkJson((prev) => {
         const c = prev[selCountry];
         if (!c?.categories[catId]) return prev;
         return {
@@ -269,23 +213,22 @@ export default function AdminPanel() {
       });
       setSelCat(catId);
     },
-    [applyNetworkChange, selCountry]
+    [selCountry, setNetworkJson]
   );
 
   const addCountry = () => {
     const id = window.prompt(t('promptCountryId'), 'new-country');
     if (!id) return;
     const slug = uniqueSlug(id, Object.keys(networkJson), 'country');
-    applyNetworkChange((p) => ({ ...p, [slug]: emptyCountry(slug, t('defaultCategoryLabel')) }));
+    setNetworkJson((p) => ({ ...p, [slug]: emptyCountry(slug, t('defaultCategoryLabel')) }));
     setSelCountry(slug);
     setSelCat('');
-    setSelSubCat('');
   };
 
   const removeCountry = () => {
     if (!selCountry) return;
     if (!window.confirm(t('confirmDeleteCountry', { id: selCountry }))) return;
-    applyNetworkChange((p) => {
+    setNetworkJson((p) => {
       if (!p[selCountry]) return p;
       const { [selCountry]: _, ...rest } = p;
       return rest;
@@ -293,7 +236,6 @@ export default function AdminPanel() {
     const next = countryIds.filter((x) => x !== selCountry);
     setSelCountry(next[0] ?? '');
     setSelCat('');
-    setSelSubCat('');
     flushNetworkToCloudSoon();
   };
 
@@ -302,7 +244,7 @@ export default function AdminPanel() {
     const id = window.prompt(t('promptCategoryId'), 'new-category');
     if (!id) return;
     const slug = uniqueSlug(id, Object.keys(country.categories), 'cat');
-    applyNetworkChange((p) => {
+    setNetworkJson((p) => {
       const c = p[selCountry];
       if (!c) return p;
       return {
@@ -314,31 +256,26 @@ export default function AdminPanel() {
       };
     });
     setSelCat(slug);
-    setSelSubCat('');
   };
 
   const removeCategory = (catId: string) => {
     if (!selCountry) return;
     if (!window.confirm(t('confirmDeleteCategory', { id: catId }))) return;
-    applyNetworkChange((p) => {
+    setNetworkJson((p) => {
       const c = p[selCountry];
       if (!c?.categories[catId]) return p;
       const { [catId]: _, ...cats } = c.categories;
       return { ...p, [selCountry]: { ...c, categories: cats } };
     });
     setSelCat('');
-    setSelSubCat('');
     flushNetworkToCloudSoon();
   };
 
-  const addSubCategory = () => {
-    if (!selCountry || !selCat || !activeCat) return;
-    const id = window.prompt(t('promptSubcategoryId'), 'new-subcategory');
-    if (!id) return;
-    const slug = uniqueSlug(id, Object.keys(activeCat.subcategories ?? {}), 'subcat');
-    applyNetworkChange((p) => {
+  const addCompany = (catId: string) => {
+    if (!selCountry) return;
+    setNetworkJson((p) => {
       const c = p[selCountry];
-      const cat = c?.categories[selCat];
+      const cat = c?.categories[catId];
       if (!c || !cat) return p;
       return {
         ...p,
@@ -346,158 +283,19 @@ export default function AdminPanel() {
           ...c,
           categories: {
             ...c.categories,
-            [selCat]: {
-              ...cat,
-              subcategories: { ...(cat.subcategories ?? {}), [slug]: emptyCategory(t('defaultCategoryLabel')) },
-            },
+            [catId]: { ...cat, companies: [...cat.companies, emptyCompany()] },
           },
         },
       };
     });
-    setSelSubCat(slug);
   };
 
-  const updateSubCategory = useCallback(
-    (subCatId: string, patch: Partial<CategoryJson>) => {
-      if (!selCountry || !selCat) return;
-      applyNetworkChange((prev) => {
-        const c = prev[selCountry];
-        const cat = c?.categories[selCat];
-        const subcat = cat?.subcategories?.[subCatId];
-        if (!c || !cat || !subcat) return prev;
-        return {
-          ...prev,
-          [selCountry]: {
-            ...c,
-            categories: {
-              ...c.categories,
-              [selCat]: {
-                ...cat,
-                subcategories: { ...(cat.subcategories ?? {}), [subCatId]: { ...subcat, ...patch } },
-              },
-            },
-          },
-        };
-      });
-    },
-    [applyNetworkChange, selCat, selCountry]
-  );
-
-  const moveSubCategory = useCallback(
-    (subCatId: string, direction: -1 | 1) => {
-      if (!selCountry || !selCat) return;
-      applyNetworkChange((prev) => {
-        const c = prev[selCountry];
-        const cat = c?.categories[selCat];
-        if (!c || !cat?.subcategories?.[subCatId]) return prev;
-        return {
-          ...prev,
-          [selCountry]: {
-            ...c,
-            categories: {
-              ...c.categories,
-              [selCat]: {
-                ...cat,
-                subcategories: moveKeyInRecord(cat.subcategories, subCatId, direction),
-              },
-            },
-          },
-        };
-      });
-      setSelSubCat(subCatId);
-    },
-    [applyNetworkChange, selCat, selCountry]
-  );
-
-  const removeSubCategory = (subCatId: string) => {
-    if (!selCountry || !selCat) return;
-    if (!window.confirm(t('confirmDeleteSubcategory', { id: subCatId }))) return;
-    applyNetworkChange((p) => {
+  const updateCompany = (catId: string, index: number, patch: Partial<CompanyJson>) => {
+    if (!selCountry) return;
+    setNetworkJson((p) => {
       const c = p[selCountry];
-      const cat = c?.categories[selCat];
-      if (!c || !cat?.subcategories?.[subCatId]) return p;
-      const { [subCatId]: _, ...subcategories } = cat.subcategories;
-      return {
-        ...p,
-        [selCountry]: {
-          ...c,
-          categories: {
-            ...c.categories,
-            [selCat]: { ...cat, subcategories },
-          },
-        },
-      };
-    });
-    setSelSubCat('');
-    flushNetworkToCloudSoon();
-  };
-
-  const addCompany = () => {
-    if (!selCountry || !selCat) return;
-    applyNetworkChange((p) => {
-      const c = p[selCountry];
-      const cat = c?.categories[selCat];
+      const cat = c?.categories[catId];
       if (!c || !cat) return p;
-      if (selSubCat) {
-        const subcat = cat.subcategories?.[selSubCat];
-        if (!subcat) return p;
-        return {
-          ...p,
-          [selCountry]: {
-            ...c,
-            categories: {
-              ...c.categories,
-              [selCat]: {
-                ...cat,
-                subcategories: {
-                  ...(cat.subcategories ?? {}),
-                  [selSubCat]: { ...subcat, companies: [...subcat.companies, emptyCompany()] },
-                },
-              },
-            },
-          },
-        };
-      }
-      return {
-        ...p,
-        [selCountry]: {
-          ...c,
-          categories: {
-            ...c.categories,
-            [selCat]: { ...cat, companies: [...cat.companies, emptyCompany()] },
-          },
-        },
-      };
-    });
-  };
-
-  const updateCompany = (index: number, patch: Partial<CompanyJson>) => {
-    if (!selCountry || !selCat) return;
-    applyNetworkChange((p) => {
-      const c = p[selCountry];
-      const cat = c?.categories[selCat];
-      if (!c || !cat) return p;
-      if (selSubCat) {
-        const subcat = cat.subcategories?.[selSubCat];
-        if (!subcat) return p;
-        const companies = subcat.companies.map((row, i) => (i === index ? { ...row, ...patch } : row));
-        return {
-          ...p,
-          [selCountry]: {
-            ...c,
-            categories: {
-              ...c.categories,
-              [selCat]: {
-                ...cat,
-                subcategories: {
-                  ...(cat.subcategories ?? {}),
-                  [selSubCat]: { ...subcat, companies },
-                },
-              },
-            },
-          },
-        };
-      }
       const companies = cat.companies.map((row, i) => (i === index ? { ...row, ...patch } : row));
       return {
         ...p,
@@ -505,40 +303,19 @@ export default function AdminPanel() {
           ...c,
           categories: {
             ...c.categories,
-            [selCat]: { ...cat, companies },
+            [catId]: { ...cat, companies },
           },
         },
       };
     });
   };
 
-  const removeCompany = (index: number) => {
-    if (!selCountry || !selCat) return;
-    applyNetworkChange((p) => {
+  const removeCompany = (catId: string, index: number) => {
+    if (!selCountry) return;
+    setNetworkJson((p) => {
       const c = p[selCountry];
-      const cat = c?.categories[selCat];
+      const cat = c?.categories[catId];
       if (!c || !cat) return p;
-      if (selSubCat) {
-        const subcat = cat.subcategories?.[selSubCat];
-        if (!subcat) return p;
-        const companies = subcat.companies.filter((_, i) => i !== index);
-        return {
-          ...p,
-          [selCountry]: {
-            ...c,
-            categories: {
-              ...c.categories,
-              [selCat]: {
-                ...cat,
-                subcategories: {
-                  ...(cat.subcategories ?? {}),
-                  [selSubCat]: { ...subcat, companies: companies.length ? companies : [emptyCompany()] },
-                },
-              },
-            },
-          },
-        };
-      }
       const companies = cat.companies.filter((_, i) => i !== index);
       return {
         ...p,
@@ -546,7 +323,7 @@ export default function AdminPanel() {
           ...c,
           categories: {
             ...c.categories,
-            [selCat]: { ...cat, companies: companies.length ? companies : [emptyCompany()] },
+            [catId]: { ...cat, companies: companies.length ? companies : [emptyCompany()] },
           },
         },
       };
@@ -570,11 +347,10 @@ export default function AdminPanel() {
       try {
         const data: unknown = JSON.parse(String(reader.result));
         if (!validateNetwork(data)) throw new Error('Invalid shape');
-        applyNetworkChange(data);
+        setNetworkJson(data);
         const ids = Object.keys(data);
         setSelCountry(ids[0] ?? '');
         setSelCat('');
-        setSelSubCat('');
         window.alert(t('importOk'));
       } catch {
         window.alert(t('invalidJsonFile'));
@@ -605,13 +381,12 @@ export default function AdminPanel() {
   const resetDefault = () => {
     if (!window.confirm(t('confirmReset'))) return;
     const d = defaultNetworkClone();
-    applyNetworkChange(d);
+    setNetworkJson(d);
     setRootNodeLines({ ...DEFAULT_ROOT_NODE_LINES });
     setDraftLine1(DEFAULT_ROOT_NODE_LINES.line1);
     setDraftLine2(DEFAULT_ROOT_NODE_LINES.line2);
     setSelCountry(Object.keys(d)[0] ?? '');
     setSelCat('');
-    setSelSubCat('');
   };
 
   if (!adminOk) {
@@ -659,6 +434,8 @@ export default function AdminPanel() {
     );
   }
 
+  const activeCat = selCat && country ? country.categories[selCat] : undefined;
+
   return (
     <div className="min-h-screen bg-bg text-ink">
       <header className="sticky top-0 z-10 border-b border-border bg-white/90 backdrop-blur px-4 py-3 flex flex-wrap items-center justify-between gap-2">
@@ -666,24 +443,6 @@ export default function AdminPanel() {
           <h1 className="font-serif text-lg truncate">{t('adminHeader')}</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={undoNetwork}
-            disabled={history.past.length === 0}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-hover disabled:opacity-40 disabled:pointer-events-none"
-          >
-            <Undo2 className="w-3.5 h-3.5" />
-            {t('undo')}
-          </button>
-          <button
-            type="button"
-            onClick={redoNetwork}
-            disabled={history.future.length === 0}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-hover disabled:opacity-40 disabled:pointer-events-none"
-          >
-            <Redo2 className="w-3.5 h-3.5" />
-            {t('redo')}
-          </button>
           <label className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium cursor-pointer hover:bg-hover">
             <Upload className="w-3.5 h-3.5" />
             {t('import')}
@@ -739,7 +498,6 @@ export default function AdminPanel() {
                   onClick={() => {
                     setSelCountry(id);
                     setSelCat('');
-                    setSelSubCat('');
                   }}
                   className={`min-w-0 flex-1 text-start rounded-lg px-3 py-2 text-sm ${
                     selCountry === id ? 'bg-ink text-white' : 'hover:bg-hover'
@@ -922,10 +680,7 @@ export default function AdminPanel() {
                   >
                     <button
                       type="button"
-                      onClick={() => {
-                        setSelCat(cid);
-                        setSelSubCat('');
-                      }}
+                      onClick={() => setSelCat(cid)}
                       className="px-3 py-1"
                     >
                       <span className="inline-flex items-center gap-1.5">
@@ -959,34 +714,26 @@ export default function AdminPanel() {
               </div>
             </section>
 
-            {activeCat && activeEditCat && selCat && (
+            {activeCat && selCat && (
               <section className="rounded-xl border border-border bg-white p-4 space-y-4">
                 <div className="flex justify-between items-center">
-                  <h2 className="font-medium">
-                    {selSubCat ? t('subcategoryHeading', { id: selSubCat }) : t('categoryHeading', { id: selCat })}
-                  </h2>
+                  <h2 className="font-medium">{t('categoryHeading', { id: selCat })}</h2>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        if (selSubCat) updateSubCategory(selSubCat, { hidden: !activeEditCat.hidden });
-                        else updateCategory(selCat, { hidden: !activeEditCat.hidden });
-                      }}
+                      onClick={() => updateCategory(selCat, { hidden: !activeCat.hidden })}
                       className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium ${
-                        activeEditCat.hidden
+                        activeCat.hidden
                           ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
                           : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
                       }`}
                     >
-                      {activeEditCat.hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      {activeEditCat.hidden ? t('hiddenOnSite') : t('visibleOnSite')}
+                      {activeCat.hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      {activeCat.hidden ? t('hiddenOnSite') : t('visibleOnSite')}
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (selSubCat) removeSubCategory(selSubCat);
-                        else removeCategory(selCat);
-                      }}
+                      onClick={() => removeCategory(selCat)}
                       className="text-red-600 p-1 rounded hover:bg-red-50"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -998,36 +745,27 @@ export default function AdminPanel() {
                     <span>{t('categoryVisibility')}</span>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (selSubCat) updateSubCategory(selSubCat, { hidden: !activeEditCat.hidden });
-                        else updateCategory(selCat, { hidden: !activeEditCat.hidden });
-                      }}
+                      onClick={() => updateCategory(selCat, { hidden: !activeCat.hidden })}
                       className="inline-flex items-center gap-1.5 rounded-full bg-white border border-border px-3 py-1 text-xs text-ink hover:bg-hover"
                     >
-                      {activeEditCat.hidden ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                      {activeEditCat.hidden ? t('showCategory') : t('hideCategory')}
+                      {activeCat.hidden ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                      {activeCat.hidden ? t('showCategory') : t('hideCategory')}
                     </button>
                   </div>
                   <label className="text-xs sm:col-span-2">
                     <span className="text-ink-soft">{t('label')}</span>
                     <input
                       className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
-                      value={activeEditCat.label}
-                      onChange={(e) => {
-                        if (selSubCat) updateSubCategory(selSubCat, { label: e.target.value });
-                        else updateCategory(selCat, { label: e.target.value });
-                      }}
+                      value={activeCat.label}
+                      onChange={(e) => updateCategory(selCat, { label: e.target.value })}
                     />
                   </label>
                   <label className="text-xs sm:col-span-2">
                     <span className="text-ink-soft">{t('iconLucide')}</span>
                     <select
                       className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
-                      value={activeEditCat.iconKey}
-                      onChange={(e) => {
-                        if (selSubCat) updateSubCategory(selSubCat, { iconKey: e.target.value });
-                        else updateCategory(selCat, { iconKey: e.target.value });
-                      }}
+                      value={activeCat.iconKey}
+                      onChange={(e) => updateCategory(selCat, { iconKey: e.target.value })}
                     >
                       {ICON_KEYS.map((k) => (
                         <option key={k} value={k}>
@@ -1038,86 +776,12 @@ export default function AdminPanel() {
                   </label>
                 </div>
 
-                <div className="rounded-lg border border-border bg-hover/60 p-3 space-y-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="inline-flex items-center gap-1.5 text-sm font-medium">
-                      <Layers3 className="w-4 h-4 text-ink-soft" />
-                      {t('subcategoriesSection')}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={addSubCategory}
-                      className="text-xs inline-flex items-center gap-1 text-ink-soft hover:text-ink"
-                    >
-                      <Plus className="w-3.5 h-3.5" /> {t('addSubcategory')}
-                    </button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setSelSubCat('')}
-                      className={`rounded-full px-3 py-1 text-sm border ${
-                        !selSubCat ? 'border-ink bg-ink text-white' : 'border-border bg-white hover:bg-hover'
-                      }`}
-                    >
-                      {t('parentCategory')}
-                    </button>
-                    {subCatKeys.map((sid, index) => {
-                      const subcat = activeCat.subcategories?.[sid];
-                      if (!subcat) return null;
-                      return (
-                        <div
-                          key={sid}
-                          className={`inline-flex items-center rounded-full text-sm border overflow-hidden ${
-                            selSubCat === sid
-                              ? 'border-ink bg-ink text-white'
-                              : subcat.hidden
-                                ? 'border-border bg-white text-ink-soft'
-                                : 'border-border bg-white hover:bg-hover'
-                          }`}
-                        >
-                          <button type="button" onClick={() => setSelSubCat(sid)} className="px-3 py-1">
-                            <span className="inline-flex items-center gap-1.5">
-                              {subcat.hidden && <EyeOff className="w-3 h-3" />}
-                              {sid}
-                            </span>
-                          </button>
-                          <span className={`h-4 w-px ${selSubCat === sid ? 'bg-white/30' : 'bg-border'}`} />
-                          <button
-                            type="button"
-                            onClick={() => moveSubCategory(sid, -1)}
-                            disabled={index === 0}
-                            title={t('moveUp')}
-                            aria-label={t('moveUp')}
-                            className="px-1.5 py-1 hover:bg-black/5 disabled:opacity-30 disabled:pointer-events-none"
-                          >
-                            <ArrowUp className="w-3 h-3" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => moveSubCategory(sid, 1)}
-                            disabled={index === subCatKeys.length - 1}
-                            title={t('moveDown')}
-                            aria-label={t('moveDown')}
-                            className="px-1.5 py-1 hover:bg-black/5 disabled:opacity-30 disabled:pointer-events-none"
-                          >
-                            <ArrowDown className="w-3 h-3" />
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <p className="text-[11px] text-ink-soft leading-snug">{t('subcategoriesHint')}</p>
-                </div>
-
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">
-                      {t('companies')} {selSubCat ? `· ${selSubCat}` : ''}
-                    </span>
+                    <span className="text-sm font-medium">{t('companies')}</span>
                     <button
                       type="button"
-                      onClick={addCompany}
+                      onClick={() => addCompany(selCat)}
                       className="text-xs inline-flex items-center gap-1 text-ink-soft hover:text-ink"
                     >
                       <Plus className="w-3.5 h-3.5" /> {t('addCompany')}
@@ -1138,20 +802,20 @@ export default function AdminPanel() {
                         </tr>
                       </thead>
                       <tbody>
-                        {activeEditCat.companies.map((row, i) => (
+                        {activeCat.companies.map((row, i) => (
                           <tr key={i} className="border-t border-border">
                             <td className="p-1">
                               <input
                                 className="w-full rounded border border-transparent hover:border-border px-1 py-1"
                                 value={row.name}
-                                onChange={(e) => updateCompany(i, { name: e.target.value })}
+                                onChange={(e) => updateCompany(selCat, i, { name: e.target.value })}
                               />
                             </td>
                             <td className="p-1">
                               <input
                                 className="w-full rounded border border-transparent hover:border-border px-1 py-1"
                                 value={row.tag}
-                                onChange={(e) => updateCompany(i, { tag: e.target.value })}
+                                onChange={(e) => updateCompany(selCat, i, { tag: e.target.value })}
                               />
                             </td>
                             <td className="p-1">
@@ -1159,14 +823,14 @@ export default function AdminPanel() {
                                 className="w-full rounded border border-transparent hover:border-border px-1 py-1 text-center"
                                 maxLength={3}
                                 value={row.initial}
-                                onChange={(e) => updateCompany(i, { initial: e.target.value })}
+                                onChange={(e) => updateCompany(selCat, i, { initial: e.target.value })}
                               />
                             </td>
                             <td className="p-1">
                               <input
                                 className="w-full rounded border border-transparent hover:border-border px-1 py-1"
                                 value={row.url}
-                                onChange={(e) => updateCompany(i, { url: e.target.value })}
+                                onChange={(e) => updateCompany(selCat, i, { url: e.target.value })}
                                 placeholder="https://..."
                               />
                             </td>
@@ -1186,7 +850,7 @@ export default function AdminPanel() {
                               <button
                                 type="button"
                                 className="p-1 rounded text-red-600 hover:bg-red-50"
-                                onClick={() => removeCompany(i)}
+                                onClick={() => removeCompany(selCat, i)}
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>

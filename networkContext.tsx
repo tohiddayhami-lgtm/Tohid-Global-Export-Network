@@ -41,30 +41,6 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
-function validateCompany(co: unknown): boolean {
-  if (!isRecord(co)) return false;
-  return (
-    typeof co.name === 'string' &&
-    typeof co.tag === 'string' &&
-    typeof co.initial === 'string' &&
-    typeof co.url === 'string'
-  );
-}
-
-function validateCategory(cat: unknown): boolean {
-  if (!isRecord(cat)) return false;
-  if (typeof cat.label !== 'string' || typeof cat.iconKey !== 'string') return false;
-  if ('hidden' in cat && typeof cat.hidden !== 'boolean') return false;
-  if (!Array.isArray(cat.companies) || !cat.companies.every(validateCompany)) return false;
-  if ('subcategories' in cat) {
-    if (!isRecord(cat.subcategories)) return false;
-    for (const [, subcat] of Object.entries(cat.subcategories)) {
-      if (!validateCategory(subcat)) return false;
-    }
-  }
-  return true;
-}
-
 function readServerUpdatedAtMs(data: Record<string, unknown>): number {
   const ua = data.updatedAt;
   if (ua && typeof ua === 'object' && 'toMillis' in ua && typeof (ua as { toMillis: () => number }).toMillis === 'function') {
@@ -92,7 +68,15 @@ export function validateNetwork(data: unknown): data is ExportNetworkJson {
     if (!isRecord(c.anchor) || typeof c.anchor.x !== 'number' || typeof c.anchor.y !== 'number') return false;
     if (!isRecord(c.categories)) return false;
     for (const [, cat] of Object.entries(c.categories)) {
-      if (!validateCategory(cat)) return false;
+      if (!isRecord(cat)) return false;
+      if (typeof cat.label !== 'string' || typeof cat.iconKey !== 'string') return false;
+      if ('hidden' in cat && typeof cat.hidden !== 'boolean') return false;
+      if (!Array.isArray(cat.companies)) return false;
+      for (const co of cat.companies) {
+        if (!isRecord(co)) return false;
+        if (typeof co.name !== 'string' || typeof co.tag !== 'string') return false;
+        if (typeof co.initial !== 'string' || typeof co.url !== 'string') return false;
+      }
     }
   }
   return true;

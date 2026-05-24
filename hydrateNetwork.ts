@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import type { CategoryJson, CompanyJson, CountryJson, ExportNetworkJson } from './networkTypes.ts';
+import type { CompanyJson, CountryJson, ExportNetworkJson } from './networkTypes.ts';
 import { getIconByKey } from './iconRegistry.ts';
 
 export interface Company extends CompanyJson {}
@@ -9,7 +9,6 @@ export interface Category {
   icon: LucideIcon;
   companies: Company[];
   hidden: boolean;
-  subcategories: Record<string, Category>;
 }
 
 export interface Country {
@@ -33,7 +32,12 @@ export function hydrateNetwork(json: ExportNetworkJson): ExportDataMap {
 function hydrateCountry(c: CountryJson): Country {
   const categories: Record<string, Category> = {};
   for (const [kid, cat] of Object.entries(c.categories ?? {})) {
-    categories[kid] = hydrateCategory(cat);
+    categories[kid] = {
+      label: cat.label,
+      icon: getIconByKey(cat.iconKey || 'CircleDot'),
+      companies: (cat.companies ?? []).map((co) => ({ ...co })),
+      hidden: cat.hidden === true,
+    };
   }
   return {
     id: c.id,
@@ -41,19 +45,5 @@ function hydrateCountry(c: CountryJson): Country {
     flag: c.flag,
     anchor: { ...c.anchor },
     categories,
-  };
-}
-
-function hydrateCategory(cat: CategoryJson): Category {
-  const subcategories: Record<string, Category> = {};
-  for (const [sid, subcat] of Object.entries(cat.subcategories ?? {})) {
-    subcategories[sid] = hydrateCategory(subcat);
-  }
-  return {
-    label: cat.label,
-    icon: getIconByKey(cat.iconKey || 'CircleDot'),
-    companies: (cat.companies ?? []).map((co) => ({ ...co })),
-    hidden: cat.hidden === true,
-    subcategories,
   };
 }
