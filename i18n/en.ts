@@ -41,6 +41,8 @@ export const en = {
   reset: 'Reset',
   map: 'Map',
   logOut: 'Log out',
+  moveUp: 'Move up',
+  moveDown: 'Move down',
   countries: 'Countries',
   addCountryTitle: 'Add country',
   countrySection: 'Country',

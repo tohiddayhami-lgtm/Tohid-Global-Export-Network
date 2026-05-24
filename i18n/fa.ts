@@ -41,6 +41,8 @@ export const fa = {
   reset: 'بازنشانی',
   map: 'نقشه',
   logOut: 'خروج',
+  moveUp: 'انتقال به بالا',
+  moveDown: 'انتقال به پایین',
   countries: 'کشورها',
   addCountryTitle: 'افزودن کشور',
   countrySection: 'کشور',

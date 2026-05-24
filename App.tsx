@@ -169,7 +169,6 @@ export default function App() {
     if (!selectedCountryData) return [];
     return (Object.entries(selectedCountryData.categories) as [string, Category][])
       .filter(([, cat]) => !cat.hidden)
-      .sort(([a], [b]) => a.localeCompare(b, 'en', { sensitivity: 'base', numeric: true }))
       .map(([id, cat]) => ({ id, label: cat.label, icon: cat.icon, companies: cat.companies }));
   }, [selectedCountryData]);
 

@@ -1,6 +1,20 @@
 import { useCallback, useEffect, useMemo, useState, type ChangeEventHandler, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Download, ExternalLink, Eye, EyeOff, Image, LogOut, Plus, RotateCcw, Save, Trash2, Upload } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  Download,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  Image,
+  LogOut,
+  Plus,
+  RotateCcw,
+  Save,
+  Trash2,
+  Upload,
+} from 'lucide-react';
 import type { CategoryJson, CompanyJson, CountryJson } from './networkTypes.ts';
 import { ICON_KEYS } from './iconRegistry.ts';
 import {
@@ -57,6 +71,15 @@ function uniqueSlug(raw: string, existingKeys: readonly string[], fallbackPrefix
     }
   }
   return slug;
+}
+
+function moveKeyInRecord<T>(record: Record<string, T>, key: string, direction: -1 | 1): Record<string, T> {
+  const entries = Object.entries(record);
+  const index = entries.findIndex(([id]) => id === key);
+  const nextIndex = index + direction;
+  if (index < 0 || nextIndex < 0 || nextIndex >= entries.length) return record;
+  [entries[index], entries[nextIndex]] = [entries[nextIndex], entries[index]];
+  return Object.fromEntries(entries) as Record<string, T>;
 }
 
 function emptyCompany(): CompanyJson {
@@ -159,6 +182,36 @@ export default function AdminPanel() {
           },
         };
       });
+    },
+    [selCountry, setNetworkJson]
+  );
+
+  const moveCountry = useCallback(
+    (countryId: string, direction: -1 | 1) => {
+      setNetworkJson((prev) => {
+        if (!prev[countryId]) return prev;
+        return moveKeyInRecord(prev, countryId, direction);
+      });
+      setSelCountry(countryId);
+    },
+    [setNetworkJson]
+  );
+
+  const moveCategory = useCallback(
+    (catId: string, direction: -1 | 1) => {
+      if (!selCountry) return;
+      setNetworkJson((prev) => {
+        const c = prev[selCountry];
+        if (!c?.categories[catId]) return prev;
+        return {
+          ...prev,
+          [selCountry]: {
+            ...c,
+            categories: moveKeyInRecord(c.categories, catId, direction),
+          },
+        };
+      });
+      setSelCat(catId);
     },
     [selCountry, setNetworkJson]
   );
@@ -438,20 +491,42 @@ export default function AdminPanel() {
             </button>
           </div>
           <ul className="space-y-1">
-            {countryIds.map((id) => (
-              <li key={id}>
+            {countryIds.map((id, index) => (
+              <li key={id} className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={() => {
                     setSelCountry(id);
                     setSelCat('');
                   }}
-                  className={`w-full text-start rounded-lg px-3 py-2 text-sm ${
+                  className={`min-w-0 flex-1 text-start rounded-lg px-3 py-2 text-sm ${
                     selCountry === id ? 'bg-ink text-white' : 'hover:bg-hover'
                   }`}
                 >
-                  {networkJson[id].label}
+                  <span className="block truncate">{networkJson[id].label}</span>
                 </button>
+                <div className="flex shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => moveCountry(id, -1)}
+                    disabled={index === 0}
+                    title={t('moveUp')}
+                    aria-label={t('moveUp')}
+                    className="p-1 rounded text-ink-soft hover:text-ink hover:bg-hover disabled:opacity-30 disabled:pointer-events-none"
+                  >
+                    <ArrowUp className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveCountry(id, 1)}
+                    disabled={index === countryIds.length - 1}
+                    title={t('moveDown')}
+                    aria-label={t('moveDown')}
+                    className="p-1 rounded text-ink-soft hover:text-ink hover:bg-hover disabled:opacity-30 disabled:pointer-events-none"
+                  >
+                    <ArrowDown className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
@@ -592,12 +667,10 @@ export default function AdminPanel() {
                 </button>
               </div>
               <div className="flex flex-wrap gap-2">
-                {catKeys.map((cid) => (
-                  <button
+                {catKeys.map((cid, index) => (
+                  <div
                     key={cid}
-                    type="button"
-                    onClick={() => setSelCat(cid)}
-                    className={`rounded-full px-3 py-1 text-sm border ${
+                    className={`inline-flex items-center rounded-full text-sm border overflow-hidden ${
                       selCat === cid
                         ? 'border-ink bg-ink text-white'
                         : country.categories[cid].hidden
@@ -605,11 +678,38 @@ export default function AdminPanel() {
                           : 'border-border hover:bg-hover'
                     }`}
                   >
-                    <span className="inline-flex items-center gap-1.5">
-                      {country.categories[cid].hidden && <EyeOff className="w-3 h-3" />}
-                      {cid}
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelCat(cid)}
+                      className="px-3 py-1"
+                    >
+                      <span className="inline-flex items-center gap-1.5">
+                        {country.categories[cid].hidden && <EyeOff className="w-3 h-3" />}
+                        {cid}
+                      </span>
+                    </button>
+                    <span className={`h-4 w-px ${selCat === cid ? 'bg-white/30' : 'bg-border'}`} />
+                    <button
+                      type="button"
+                      onClick={() => moveCategory(cid, -1)}
+                      disabled={index === 0}
+                      title={t('moveUp')}
+                      aria-label={t('moveUp')}
+                      className="px-1.5 py-1 hover:bg-black/5 disabled:opacity-30 disabled:pointer-events-none"
+                    >
+                      <ArrowUp className="w-3 h-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveCategory(cid, 1)}
+                      disabled={index === catKeys.length - 1}
+                      title={t('moveDown')}
+                      aria-label={t('moveDown')}
+                      className="px-1.5 py-1 hover:bg-black/5 disabled:opacity-30 disabled:pointer-events-none"
+                    >
+                      <ArrowDown className="w-3 h-3" />
+                    </button>
+                  </div>
                 ))}
               </div>
             </section>
