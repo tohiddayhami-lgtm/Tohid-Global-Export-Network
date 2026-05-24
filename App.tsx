@@ -14,7 +14,7 @@ import type { Category } from './hydrateNetwork.ts';
 import { DEFAULT_ROOT_NODE_LINES, useExportData } from './networkContext.tsx';
 import { useLocale } from './i18n/LocaleContext.tsx';
 
-type AppLevel = 0 | 1 | 2 | 3;
+type AppLevel = 0 | 1 | 2 | 3 | 4;
 
 // ── Flag icons ─────────────────────────────────────────────────────────────
 
@@ -125,6 +125,20 @@ const slideUp = (delay = 0) => ({
   exit: { opacity: 0, transition: { duration: 0.18 } },
 });
 
+function visibleCategoryEntries(categories: Record<string, Category>): [string, Category][] {
+  return (Object.entries(categories) as [string, Category][]).filter(([, cat]) => !cat.hidden);
+}
+
+function countVisibleCategories(cat: Category): number {
+  if (cat.hidden) return 0;
+  return 1 + visibleCategoryEntries(cat.subcategories).reduce((n, [, subcat]) => n + countVisibleCategories(subcat), 0);
+}
+
+function countVisibleVendors(cat: Category): number {
+  if (cat.hidden) return 0;
+  return cat.companies.length + visibleCategoryEntries(cat.subcategories).reduce((n, [, subcat]) => n + countVisibleVendors(subcat), 0);
+}
+
 // ── Component ───────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -134,6 +148,7 @@ export default function App() {
   const [level, setLevel] = useState<AppLevel>(0);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedSubCategory, setSelectedSubCategory] = useState<string | null>(null);
 
   const [titleModalOpen, setTitleModalOpen] = useState(false);
   const [titleDraft, setTitleDraft] = useState({ line1: '', line2: '', badge: '', subtitle: '', stat1: '', stat2: '', stat3: '' });
@@ -143,10 +158,14 @@ export default function App() {
   // ── Navigation ────────────────────────────────────────────────────────────
 
   const goBack = useCallback(() => {
-    if (level === 3) { setLevel(2); setSelectedCategory(null); }
+    if (level === 4) {
+      if (selectedSubCategory) { setLevel(3); setSelectedSubCategory(null); }
+      else { setLevel(2); setSelectedCategory(null); }
+    }
+    else if (level === 3) { setLevel(2); setSelectedCategory(null); setSelectedSubCategory(null); }
     else if (level === 2) { setLevel(1); setSelectedCountry(null); }
     else if (level === 1) { setLevel(0); }
-  }, [level]);
+  }, [level, selectedSubCategory]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -164,25 +183,43 @@ export default function App() {
 
   const countries = useMemo(() => Object.values(exportData), [exportData]);
   const selectedCountryData = selectedCountry ? exportData[selectedCountry] : undefined;
+  const selectedCategoryData =
+    selectedCountryData && selectedCategory ? selectedCountryData.categories[selectedCategory] : undefined;
+  const selectedSubCategoryData =
+    selectedCategoryData && selectedSubCategory ? selectedCategoryData.subcategories[selectedSubCategory] : undefined;
+  const vendorCategory = selectedSubCategoryData ?? selectedCategoryData;
 
   const categories = useMemo(() => {
     if (!selectedCountryData) return [];
-    return (Object.entries(selectedCountryData.categories) as [string, Category][])
-      .filter(([, cat]) => !cat.hidden)
-      .map(([id, cat]) => ({ id, label: cat.label, icon: cat.icon, companies: cat.companies }));
+    return visibleCategoryEntries(selectedCountryData.categories).map(([id, cat]) => ({
+      id,
+      label: cat.label,
+      icon: cat.icon,
+      companies: cat.companies,
+      subcategories: cat.subcategories,
+    }));
   }, [selectedCountryData]);
 
+  const subcategories = useMemo(() => {
+    if (!selectedCategoryData) return [];
+    return visibleCategoryEntries(selectedCategoryData.subcategories).map(([id, cat]) => ({
+      id,
+      label: cat.label,
+      icon: cat.icon,
+      companies: cat.companies,
+    }));
+  }, [selectedCategoryData]);
+
   const companies = useMemo(() => {
-    if (!selectedCountryData || !selectedCategory) return [];
-    const cat = selectedCountryData.categories[selectedCategory];
-    if (!cat || cat.hidden) return [];
-    return cat.companies;
-  }, [selectedCountryData, selectedCategory]);
+    if (!vendorCategory || vendorCategory.hidden) return [];
+    return vendorCategory.companies;
+  }, [vendorCategory]);
 
   useEffect(() => {
     if (selectedCountry && !exportData[selectedCountry]) {
       setSelectedCountry(null);
       setSelectedCategory(null);
+      setSelectedSubCategory(null);
       setLevel(1);
       return;
     }
@@ -190,9 +227,20 @@ export default function App() {
     const cat = selectedCountryData.categories[selectedCategory];
     if (!cat || cat.hidden) {
       setSelectedCategory(null);
-      if (level === 3) setLevel(2);
+      setSelectedSubCategory(null);
+      if (level >= 3) setLevel(2);
+      return;
     }
-  }, [exportData, level, selectedCountry, selectedCategory, selectedCountryData]);
+    const visibleSubcats = visibleCategoryEntries(cat.subcategories);
+    if (level === 3 && visibleSubcats.length === 0) {
+      setLevel(4);
+      return;
+    }
+    if (selectedSubCategory && (!cat.subcategories[selectedSubCategory] || cat.subcategories[selectedSubCategory].hidden)) {
+      setSelectedSubCategory(null);
+      if (level === 4) setLevel(3);
+    }
+  }, [exportData, level, selectedCountry, selectedCategory, selectedCountryData, selectedSubCategory]);
 
   const rootLine1 = useMemo(
     () => rootNodeLines.line1.trim() || DEFAULT_ROOT_NODE_LINES.line1,
@@ -204,12 +252,12 @@ export default function App() {
   );
 
   const totalBooths = useMemo(
-    () => countries.reduce((n, c) => n + (Object.values(c.categories) as Category[]).filter((cat) => !cat.hidden).length, 0),
+    () => countries.reduce((n, c) => n + visibleCategoryEntries(c.categories).reduce((m, [, cat]) => m + countVisibleCategories(cat), 0), 0),
     [countries],
   );
   const totalVendors = useMemo(
     () => countries.reduce(
-      (n, c) => n + (Object.values(c.categories) as Category[]).reduce((m, cat) => (cat.hidden ? m : m + cat.companies.length), 0), 0,
+      (n, c) => n + visibleCategoryEntries(c.categories).reduce((m, [, cat]) => m + countVisibleVendors(cat), 0), 0,
     ),
     [countries],
   );
@@ -308,9 +356,15 @@ export default function App() {
           {level >= 2 && <span className="text-port-faint shrink-0">/</span>}
           {level >= 2 && (
             <span className="truncate">
-              {level === 2
+              {level === 2 || !selectedCategoryData
                 ? 'Booths'
-                : exportData[selectedCountry!]?.categories[selectedCategory!]?.label}
+                : selectedCategoryData.label}
+            </span>
+          )}
+          {level >= 4 && selectedSubCategoryData && <span className="text-port-faint shrink-0">/</span>}
+          {level >= 4 && selectedSubCategoryData && (
+            <span className="truncate">
+              {selectedSubCategoryData.label}
             </span>
           )}
         </div>
@@ -445,12 +499,19 @@ export default function App() {
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                 {countries.map((c, i) => {
                   const accent = TERMINAL_ACCENTS[c.flag || c.id] ?? TERMINAL_ACCENTS.iran;
-                  const visibleBoothCount = (Object.values(c.categories) as Category[]).filter((cat) => !cat.hidden).length;
+                  const visibleBoothCount = visibleCategoryEntries(c.categories).reduce((n, [, cat]) => n + countVisibleCategories(cat), 0);
                   return (
                     <button
                       key={c.id}
                       type="button"
-                      onClick={() => { if (!touchScrolledRef.current) { setSelectedCountry(c.id); setLevel(2); } }}
+                      onClick={() => {
+                        if (!touchScrolledRef.current) {
+                          setSelectedCountry(c.id);
+                          setSelectedCategory(null);
+                          setSelectedSubCategory(null);
+                          setLevel(2);
+                        }
+                      }}
                       className="group relative flex flex-col p-5 sm:p-6 rounded-2xl border border-port-border hover:border-port-border-hi port-card-glow transition-colors text-left active:opacity-70 overflow-hidden"
                       style={{ background: `linear-gradient(135deg, ${accent.from} 0%, transparent 60%), #0e0e1c` }}
                     >
@@ -528,11 +589,18 @@ export default function App() {
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                 {categories.map((cat, i) => {
                   const Icon = cat.icon as LucideIcon;
+                  const visibleSubcategoryCount = visibleCategoryEntries(cat.subcategories).length;
                   return (
                     <button
                       key={cat.id}
                       type="button"
-                      onClick={() => { if (!touchScrolledRef.current) { setSelectedCategory(cat.id); setLevel(3); } }}
+                      onClick={() => {
+                        if (!touchScrolledRef.current) {
+                          setSelectedCategory(cat.id);
+                          setSelectedSubCategory(null);
+                          setLevel(visibleSubcategoryCount > 0 ? 3 : 4);
+                        }
+                      }}
                       className="group relative flex flex-col p-5 rounded-2xl border border-port-border bg-port-surface hover:border-port-accent/30 port-card-glow transition-colors text-left active:opacity-70 overflow-hidden"
                     >
                       {/* Booth number */}
@@ -548,7 +616,11 @@ export default function App() {
                       <h3 className="font-medium text-[13px] text-port-ink leading-snug mb-1.5 group-hover:text-port-accent transition-colors">
                         {cat.label}
                       </h3>
-                      <p className="text-[11px] text-port-soft">{cat.companies.length} vendors</p>
+                      <p className="text-[11px] text-port-soft">
+                        {visibleSubcategoryCount > 0
+                          ? `${visibleSubcategoryCount} subcategories`
+                          : `${cat.companies.length} vendors`}
+                      </p>
 
                       {/* Hover line */}
                       <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-port-accent/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -559,14 +631,61 @@ export default function App() {
             </motion.div>
           )}
 
-          {/* ── Level 3 — Vendor Cards ─────────────────────────────────────── */}
-          {level === 3 && selectedCountry && selectedCategory && (
-            <motion.div key="l3" {...slideUp()} className="relative z-10 px-4 sm:px-8 py-10 max-w-4xl mx-auto">
+          {/* ── Level 3 — Subcategory Booths ───────────────────────────────── */}
+          {level === 3 && selectedCountry && selectedCategory && selectedCategoryData && (
+            <motion.div key="l3-subcats" {...slideUp()} className="relative z-10 px-4 sm:px-8 py-10 max-w-6xl mx-auto">
+
+              <div className="flex items-center gap-3 mb-8 pb-6 border-b border-port-border">
+                {(() => {
+                  const Icon = selectedCategoryData.icon as LucideIcon;
+                  return (
+                    <div className="w-12 h-12 rounded-xl bg-port-accent-bg border border-port-accent-border flex items-center justify-center text-port-accent shrink-0">
+                      <Icon className="w-6 h-6" strokeWidth={1.5} />
+                    </div>
+                  );
+                })()}
+                <div>
+                  <p className="text-port-soft text-xs tracking-[0.14em] uppercase mb-1">Subcategories</p>
+                  <h2 className="font-serif text-3xl sm:text-4xl text-port-ink">{selectedCategoryData.label}</h2>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                {subcategories.map((subcat, i) => {
+                  const Icon = subcat.icon as LucideIcon;
+                  return (
+                    <button
+                      key={subcat.id}
+                      type="button"
+                      onClick={() => { if (!touchScrolledRef.current) { setSelectedSubCategory(subcat.id); setLevel(4); } }}
+                      className="group relative flex flex-col p-5 rounded-2xl border border-port-border bg-port-surface hover:border-port-accent/30 port-card-glow transition-colors text-left active:opacity-70 overflow-hidden"
+                    >
+                      <div className="absolute top-3 end-3 text-[9px] text-port-faint tracking-widest font-medium">
+                        S{String(i + 1).padStart(2, '0')}
+                      </div>
+                      <div className="w-10 h-10 rounded-xl bg-port-accent-bg border border-port-accent-border flex items-center justify-center text-port-accent mb-4 group-hover:bg-port-accent/20 group-hover:scale-105 transition-all shrink-0">
+                        <Icon className="w-5 h-5" strokeWidth={1.5} />
+                      </div>
+                      <h3 className="font-medium text-[13px] text-port-ink leading-snug mb-1.5 group-hover:text-port-accent transition-colors">
+                        {subcat.label}
+                      </h3>
+                      <p className="text-[11px] text-port-soft">{subcat.companies.length} vendors</p>
+                      <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-port-accent/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── Level 4 — Vendor Cards ─────────────────────────────────────── */}
+          {level === 4 && selectedCountry && selectedCategory && vendorCategory && (
+            <motion.div key="l4" {...slideUp()} className="relative z-10 px-4 sm:px-8 py-10 max-w-4xl mx-auto">
 
               {/* Booth header */}
               <div className="flex items-center gap-3 mb-2">
                 {(() => {
-                  const Icon = exportData[selectedCountry].categories[selectedCategory].icon as LucideIcon;
+                  const Icon = vendorCategory.icon as LucideIcon;
                   return (
                     <div className="w-10 h-10 rounded-xl bg-port-accent-bg border border-port-accent-border flex items-center justify-center text-port-accent shrink-0">
                       <Icon className="w-5 h-5" strokeWidth={1.5} />
@@ -574,7 +693,7 @@ export default function App() {
                   );
                 })()}
                 <h2 className="font-serif text-2xl sm:text-3xl text-port-ink">
-                  {exportData[selectedCountry].categories[selectedCategory].label}
+                  {vendorCategory.label}
                 </h2>
               </div>
               <p className="text-port-soft text-sm mb-10 ps-[52px]">

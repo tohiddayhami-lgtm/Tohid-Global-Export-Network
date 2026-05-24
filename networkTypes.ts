@@ -22,6 +22,7 @@ export interface CategoryJson {
   iconKey: string;
   companies: CompanyJson[];
   hidden?: boolean;
+  subcategories?: Record<string, CategoryJson>;
 }
 
 export interface CountryJson {
