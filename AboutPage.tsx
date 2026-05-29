@@ -2,6 +2,7 @@ import { motion } from 'motion/react';
 import { Users, Globe, Award, TrendingUp } from 'lucide-react';
 import { usePageContent } from './pageContentContext.tsx';
 import PageHeader from './PageHeader.tsx';
+import SeoHead from './SeoHead.tsx';
 
 export default function AboutPage() {
   const { pageContent } = usePageContent();
@@ -21,6 +22,7 @@ export default function AboutPage() {
 
   return (
     <div className="min-h-[100dvh] bg-port-bg text-port-ink font-sans flex flex-col overflow-x-hidden">
+      <SeoHead pageTitle={pageContent.aboutTitle} pageDescription={pageContent.seoAboutDescription} />
       <PageHeader />
 
       <div className="fixed inset-0 port-grid pointer-events-none z-0" />

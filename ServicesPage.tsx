@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { FileText, Network, Truck, Handshake, ArrowRight } from 'lucide-react';
 import { usePageContent } from './pageContentContext.tsx';
 import PageHeader from './PageHeader.tsx';
+import SeoHead from './SeoHead.tsx';
 
 export default function ServicesPage() {
   const { pageContent } = usePageContent();
@@ -36,6 +37,7 @@ export default function ServicesPage() {
 
   return (
     <div className="min-h-[100dvh] bg-port-bg text-port-ink font-sans flex flex-col overflow-x-hidden">
+      <SeoHead pageTitle={pageContent.servicesTitle} pageDescription={pageContent.seoServicesDescription} />
       <PageHeader />
 
       <div className="fixed inset-0 port-grid pointer-events-none z-0" />

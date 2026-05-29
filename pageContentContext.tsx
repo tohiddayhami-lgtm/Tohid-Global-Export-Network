@@ -1,6 +1,52 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
-export interface PageContent {
+export interface SeoContent {
+  seoSiteTitle: string;
+  seoSeparator: string;
+  seoDescription: string;
+  seoKeywords: string;
+  seoAuthor: string;
+  seoSiteUrl: string;
+  // Open Graph
+  seoOgTitle: string;
+  seoOgDescription: string;
+  seoOgImageUrl: string;
+  // Twitter
+  seoTwitterCard: string;
+  seoTwitterSite: string;
+  // Per-page meta
+  seoAboutDescription: string;
+  seoServicesDescription: string;
+  seoContactDescription: string;
+  // Google Analytics
+  seoGaId: string;
+}
+
+export const DEFAULT_SEO: SeoContent = {
+  seoSiteTitle: 'Tohid Dayhami Business Solutions Center',
+  seoSeparator: '|',
+  seoDescription:
+    'Tohid Dayhami Business Solutions Center — Premier global trade facilitation hub connecting exporters with verified buyers and distributors across 20+ countries.',
+  seoKeywords:
+    'export consulting, global trade, international business, Iran trade, import export, trade network, logistics, business matchmaking',
+  seoAuthor: 'Tohid Dayhami',
+  seoSiteUrl: '',
+  seoOgTitle: 'Tohid Dayhami Business Solutions Center',
+  seoOgDescription:
+    'Explore global export markets through our interactive Tohid Meta Port. Connect with trade partners across 20+ countries.',
+  seoOgImageUrl: '',
+  seoTwitterCard: 'summary_large_image',
+  seoTwitterSite: '',
+  seoAboutDescription:
+    'Learn about Tohid Dayhami Business Solutions Center — over a decade of expertise in export consulting and global trade network management.',
+  seoServicesDescription:
+    'Explore our comprehensive trade services: export consulting, trade network access, logistics & freight, and B2B business matchmaking.',
+  seoContactDescription:
+    'Get in touch with the Tohid Dayhami Business Solutions Center team. We are ready to help you expand into global markets.',
+  seoGaId: '',
+};
+
+export interface PageContent extends SeoContent {
   siteTagline: string;
   // About Us
   aboutTitle: string;
@@ -34,6 +80,7 @@ export interface PageContent {
 }
 
 export const DEFAULT_PAGE_CONTENT: PageContent = {
+  ...DEFAULT_SEO,
   siteTagline: 'Global Trade. Local Expertise.',
   aboutTitle: 'About Us',
   aboutSubtitle: 'Connecting Global Markets Since 2010',

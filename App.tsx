@@ -20,6 +20,7 @@ const NAV_ITEMS = [
 import type { Category, Country } from './hydrateNetwork.ts';
 import { DEFAULT_ROOT_NODE_LINES, useExportData } from './networkContext.tsx';
 import { useLocale } from './i18n/LocaleContext.tsx';
+import SeoHead from './SeoHead.tsx';
 
 type AppLevel = 0 | 1 | 2 | 3;
 
@@ -278,6 +279,8 @@ export default function App() {
           <div className="h-full w-1/3 bg-port-accent/50 animate-pulse" />
         </div>
       )}
+
+      <SeoHead />
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 h-16 port-glass-nav border-b border-port-border px-4 sm:px-8 flex items-center relative">

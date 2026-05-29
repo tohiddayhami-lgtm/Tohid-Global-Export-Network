@@ -2,6 +2,7 @@ import { motion } from 'motion/react';
 import { Mail, Phone, MapPin, Clock, Send } from 'lucide-react';
 import { usePageContent } from './pageContentContext.tsx';
 import PageHeader from './PageHeader.tsx';
+import SeoHead from './SeoHead.tsx';
 
 export default function ContactPage() {
   const { pageContent } = usePageContent();
@@ -15,6 +16,7 @@ export default function ContactPage() {
 
   return (
     <div className="min-h-[100dvh] bg-port-bg text-port-ink font-sans flex flex-col overflow-x-hidden">
+      <SeoHead pageTitle={pageContent.contactTitle} pageDescription={pageContent.seoContactDescription} />
       <PageHeader />
 
       <div className="fixed inset-0 port-grid pointer-events-none z-0" />

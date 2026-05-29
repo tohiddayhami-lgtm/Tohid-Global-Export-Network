@@ -15,6 +15,8 @@ import {
   Trash2,
   Upload,
   FileText,
+  Globe,
+  Search,
 } from 'lucide-react';
 import type { CategoryJson, CompanyJson, CountryJson } from './networkTypes.ts';
 import { ICON_KEYS } from './iconRegistry.ts';
@@ -26,7 +28,7 @@ import {
   validateNetwork,
 } from './networkContext.tsx';
 import { useLocale } from './i18n/LocaleContext.tsx';
-import { usePageContent, DEFAULT_PAGE_CONTENT, type PageContent } from './pageContentContext.tsx';
+import { usePageContent, DEFAULT_PAGE_CONTENT, DEFAULT_SEO, type PageContent, type SeoContent } from './pageContentContext.tsx';
 
 const MAX_FAVICON_BYTES = 256 * 1024;
 
@@ -102,7 +104,7 @@ function emptyCountry(id: string, defaultCategoryLabel: string): CountryJson {
   };
 }
 
-type AdminTab = 'network' | 'pages';
+type AdminTab = 'network' | 'pages' | 'seo';
 
 export default function AdminPanel() {
   const { t } = useLocale();
@@ -529,6 +531,18 @@ export default function AdminPanel() {
           <FileText className="w-3.5 h-3.5" />
           Pages Content
         </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('seo')}
+          className={`inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'seo'
+              ? 'border-ink text-ink'
+              : 'border-transparent text-ink-soft hover:text-ink'
+          }`}
+        >
+          <Globe className="w-3.5 h-3.5" />
+          SEO Settings
+        </button>
       </div>
 
       {/* Pages Content Tab */}
@@ -661,6 +675,176 @@ export default function AdminPanel() {
               >
                 <Save className="w-3.5 h-3.5" />
                 Save All Pages
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* ── SEO Settings Tab ── */}
+      {activeTab === 'seo' && (
+        <div className="max-w-4xl mx-auto p-4 space-y-6">
+
+          {/* Basic SEO */}
+          <section className="rounded-xl border border-border bg-white p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-medium text-base">Basic SEO</h2>
+                <p className="text-[11px] text-ink-soft mt-0.5">Controls page title, description, and keywords seen by search engines.</p>
+              </div>
+              <button
+                type="button"
+                onClick={savePageContent}
+                className="inline-flex items-center gap-1.5 rounded-full bg-ink text-white px-4 py-1.5 text-xs font-medium hover:opacity-90"
+              >
+                <Save className="w-3 h-3" />
+                Save SEO
+              </button>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {([
+                ['seoSiteTitle', 'Site Title', 'Shown in browser tabs and search results'],
+                ['seoSeparator', 'Title Separator', 'Character between page name and site title (e.g. |)'],
+                ['seoAuthor', 'Author', 'meta author tag'],
+                ['seoSiteUrl', 'Site URL', 'Base URL for canonical links (e.g. https://yourdomain.com)'],
+              ] as [keyof SeoContent, string, string][]).map(([key, label, hint]) => (
+                <label key={key} className="block text-xs">
+                  <span className="text-ink-soft">{label}</span>
+                  <input
+                    className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
+                    value={pageDraft[key] as string}
+                    onChange={(e) => setPageDraft((d) => ({ ...d, [key]: e.target.value }))}
+                  />
+                  <span className="text-[10px] text-ink-faint">{hint}</span>
+                </label>
+              ))}
+            </div>
+            <label className="block text-xs">
+              <span className="text-ink-soft">Meta Description (homepage)</span>
+              <textarea
+                rows={3}
+                className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm resize-y"
+                value={pageDraft.seoDescription}
+                onChange={(e) => setPageDraft((d) => ({ ...d, seoDescription: e.target.value }))}
+              />
+              <span className="text-[10px] text-ink-faint">Recommended: 150–160 characters. Currently: {pageDraft.seoDescription.length}</span>
+            </label>
+            <label className="block text-xs">
+              <span className="text-ink-soft">Meta Keywords</span>
+              <input
+                className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
+                value={pageDraft.seoKeywords}
+                onChange={(e) => setPageDraft((d) => ({ ...d, seoKeywords: e.target.value }))}
+                placeholder="export, trade, logistics, ..."
+              />
+              <span className="text-[10px] text-ink-faint">Comma-separated keywords</span>
+            </label>
+          </section>
+
+          {/* Per-page descriptions */}
+          <section className="rounded-xl border border-border bg-white p-5 space-y-4">
+            <h2 className="font-medium text-base">Per-Page Descriptions</h2>
+            <p className="text-[11px] text-ink-soft">Each page shows its own description in search results.</p>
+            <div className="space-y-3">
+              {([
+                ['seoAboutDescription', 'About Us page description'],
+                ['seoServicesDescription', 'Services page description'],
+                ['seoContactDescription', 'Contact Us page description'],
+              ] as [keyof SeoContent, string][]).map(([key, label]) => (
+                <label key={key} className="block text-xs">
+                  <span className="text-ink-soft">{label}</span>
+                  <textarea
+                    rows={2}
+                    className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm resize-y"
+                    value={pageDraft[key] as string}
+                    onChange={(e) => setPageDraft((d) => ({ ...d, [key]: e.target.value }))}
+                  />
+                  <span className="text-[10px] text-ink-faint">{(pageDraft[key] as string).length} chars</span>
+                </label>
+              ))}
+            </div>
+          </section>
+
+          {/* Open Graph / Social */}
+          <section className="rounded-xl border border-border bg-white p-5 space-y-4">
+            <div>
+              <h2 className="font-medium text-base">Open Graph & Social Sharing</h2>
+              <p className="text-[11px] text-ink-soft mt-0.5">Controls how the site appears when shared on WhatsApp, Telegram, LinkedIn, Facebook, etc.</p>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <label className="block text-xs sm:col-span-2">
+                <span className="text-ink-soft">OG Title (social share title)</span>
+                <input
+                  className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
+                  value={pageDraft.seoOgTitle}
+                  onChange={(e) => setPageDraft((d) => ({ ...d, seoOgTitle: e.target.value }))}
+                  placeholder="Leave empty to use Site Title"
+                />
+              </label>
+              <label className="block text-xs sm:col-span-2">
+                <span className="text-ink-soft">OG Description (social share description)</span>
+                <textarea
+                  rows={2}
+                  className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm resize-y"
+                  value={pageDraft.seoOgDescription}
+                  onChange={(e) => setPageDraft((d) => ({ ...d, seoOgDescription: e.target.value }))}
+                />
+              </label>
+              <label className="block text-xs sm:col-span-2">
+                <span className="text-ink-soft">OG Image URL (social share thumbnail)</span>
+                <input
+                  className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
+                  value={pageDraft.seoOgImageUrl}
+                  onChange={(e) => setPageDraft((d) => ({ ...d, seoOgImageUrl: e.target.value }))}
+                  placeholder="https://yourdomain.com/og-image.jpg (recommended: 1200×630)"
+                />
+              </label>
+              <label className="block text-xs">
+                <span className="text-ink-soft">Twitter Card Type</span>
+                <select
+                  className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
+                  value={pageDraft.seoTwitterCard}
+                  onChange={(e) => setPageDraft((d) => ({ ...d, seoTwitterCard: e.target.value }))}
+                >
+                  <option value="summary_large_image">summary_large_image (large image)</option>
+                  <option value="summary">summary (small image)</option>
+                </select>
+              </label>
+              <label className="block text-xs">
+                <span className="text-ink-soft">Twitter / X Handle</span>
+                <input
+                  className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
+                  value={pageDraft.seoTwitterSite}
+                  onChange={(e) => setPageDraft((d) => ({ ...d, seoTwitterSite: e.target.value }))}
+                  placeholder="@yourhandle"
+                />
+              </label>
+            </div>
+          </section>
+
+          {/* Google Analytics */}
+          <section className="rounded-xl border border-border bg-white p-5 space-y-4">
+            <div>
+              <h2 className="font-medium text-base">Google Analytics</h2>
+              <p className="text-[11px] text-ink-soft mt-0.5">Tracking ID is injected once and active on all pages.</p>
+            </div>
+            <label className="block text-xs">
+              <span className="text-ink-soft">Google Analytics Measurement ID</span>
+              <input
+                className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
+                value={pageDraft.seoGaId}
+                onChange={(e) => setPageDraft((d) => ({ ...d, seoGaId: e.target.value }))}
+                placeholder="G-XXXXXXXXXX"
+              />
+            </label>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={savePageContent}
+                className="inline-flex items-center gap-1.5 rounded-full bg-ink text-white px-5 py-2 text-sm font-medium hover:opacity-90"
+              >
+                <Save className="w-3.5 h-3.5" />
+                Save SEO Settings
               </button>
             </div>
           </section>
