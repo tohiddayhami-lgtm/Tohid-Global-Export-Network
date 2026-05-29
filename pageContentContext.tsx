@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { firebaseApp } from './firebase.ts';
 
 export interface SeoContent {
   seoSiteTitle: string;
@@ -117,8 +118,11 @@ export const DEFAULT_PAGE_CONTENT: PageContent = {
 };
 
 const STORAGE_KEY = 'tdbsc_page_content_v1';
+const FS_COLLECTION = 'config';
+const FS_DOC_ID = 'site_content';
+const SAVE_DEBOUNCE_MS = 600;
 
-function load(): PageContent {
+function loadFromStorage(): PageContent {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return { ...DEFAULT_PAGE_CONTENT };
@@ -128,29 +132,109 @@ function load(): PageContent {
   }
 }
 
+function mergeFromFirestore(data: Record<string, unknown>): PageContent {
+  const filtered: Partial<PageContent> = {};
+  for (const key of Object.keys(DEFAULT_PAGE_CONTENT) as (keyof PageContent)[]) {
+    if (key in data && typeof data[key] === 'string') {
+      (filtered as Record<string, string>)[key] = data[key] as string;
+    }
+  }
+  return { ...DEFAULT_PAGE_CONTENT, ...filtered };
+}
+
 type Ctx = {
   pageContent: PageContent;
   updatePageContent: (patch: Partial<PageContent>) => void;
+  remoteReady: boolean;
 };
 
 const PageContentContext = createContext<Ctx | null>(null);
 
 export function PageContentProvider({ children }: { children: ReactNode }) {
-  const [pageContent, setPageContent] = useState<PageContent>(load);
+  const [pageContent, setPageContentState] = useState<PageContent>(loadFromStorage);
+  const pageContentRef = useRef(pageContent);
+  pageContentRef.current = pageContent;
 
+  /** true once we've received (or attempted) the first Firestore fetch */
+  const [remoteReady, setRemoteReady] = useState(() => !firebaseApp);
+
+  // ── Firestore read (subscribe to live changes) ─────────────────────────
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(pageContent));
-    } catch {
-      /* quota */
-    }
-  }, [pageContent]);
+    if (!firebaseApp) return;
+    let cancelled = false;
+    let unsub: (() => void) | undefined;
+
+    void import('firebase/firestore').then(({ getFirestore, doc, getDocFromServer, getDoc, onSnapshot }) => {
+      if (cancelled || !firebaseApp) return;
+      const db = getFirestore(firebaseApp);
+      const ref = doc(db, FS_COLLECTION, FS_DOC_ID);
+
+      const applySnap = (snap: { exists(): boolean; data(): Record<string, unknown> | undefined }) => {
+        if (snap.exists()) {
+          const merged = mergeFromFirestore(snap.data() ?? {});
+          setPageContentState(merged);
+        }
+        setRemoteReady(true);
+      };
+
+      // Prefer server-fresh data on first load
+      void getDocFromServer(ref)
+        .then((snap) => { if (!cancelled) applySnap(snap); })
+        .catch(() => {
+          void getDoc(ref)
+            .then((snap) => { if (!cancelled) applySnap(snap); })
+            .catch(() => { if (!cancelled) setRemoteReady(true); });
+        });
+
+      // Live subscription for changes saved by admin from any device/domain
+      unsub = onSnapshot(ref, applySnap, () => setRemoteReady(true));
+    });
+
+    return () => {
+      cancelled = true;
+      unsub?.();
+    };
+  }, []);
+
+  // ── localStorage cache (write-through) ────────────────────────────────
+  useEffect(() => {
+    if (firebaseApp && !remoteReady) return;
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(pageContent)); } catch { /* quota */ }
+  }, [pageContent, remoteReady]);
+
+  // ── Firestore write (debounced, only when admin is logged in) ──────────
+  useEffect(() => {
+    if (!firebaseApp || !remoteReady) return;
+    let cancelled = false;
+    let timer: number | null = null;
+
+    const save = async () => {
+      const [{ getAuth }, { getFirestore, doc, setDoc, serverTimestamp }] = await Promise.all([
+        import('firebase/auth'),
+        import('firebase/firestore'),
+      ]);
+      if (cancelled || !firebaseApp) return;
+      const user = getAuth(firebaseApp).currentUser;
+      if (!user) return; // Only admin writes to Firestore
+      const db = getFirestore(firebaseApp);
+      const ref = doc(db, FS_COLLECTION, FS_DOC_ID);
+      void setDoc(ref, { ...pageContentRef.current, updatedAt: serverTimestamp() }, { merge: true })
+        .catch((e) => console.error('[Firestore] Failed to save page content', e));
+    };
+
+    timer = window.setTimeout(save, SAVE_DEBOUNCE_MS);
+
+    return () => {
+      cancelled = true;
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [pageContent, remoteReady]);
 
   const updatePageContent = (patch: Partial<PageContent>) =>
-    setPageContent((prev) => ({ ...prev, ...patch }));
+    setPageContentState((prev) => ({ ...prev, ...patch }));
 
   return (
-    <PageContentContext.Provider value={{ pageContent, updatePageContent }}>
+    <PageContentContext.Provider value={{ pageContent, updatePageContent, remoteReady }}>
       {children}
     </PageContentContext.Provider>
   );
