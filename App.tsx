@@ -7,7 +7,7 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  Search, ArrowRight, ArrowLeft, Globe, Settings2, Pencil, X, ExternalLink,
+  Search, ArrowRight, ArrowLeft, Globe, Settings2, Pencil, X, ExternalLink, Menu,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -144,6 +144,7 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const [titleModalOpen, setTitleModalOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [titleDraft, setTitleDraft] = useState({ line1: '', line2: '', badge: '', subtitle: '', stat1: '', stat2: '', stat3: '' });
   const titleModalOpenRef = useRef(false);
   titleModalOpenRef.current = titleModalOpen;
@@ -279,10 +280,10 @@ export default function App() {
       )}
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-50 h-16 port-glass-nav border-b border-port-border px-4 sm:px-8 flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-50 h-16 port-glass-nav border-b border-port-border px-4 sm:px-8 flex items-center relative">
 
         {/* Left: Logo or Back */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-3 shrink-0 z-10">
           {level === 0 ? (
             <Link to="/" className="flex items-center gap-2.5 port-header-fade">
               <div className="w-8 h-8 rounded-full border border-port-accent/40 bg-port-accent-bg flex items-center justify-center shrink-0">
@@ -305,10 +306,10 @@ export default function App() {
           )}
         </div>
 
-        {/* Center: Nav links (level 0) or Breadcrumb (level 1+) */}
-        <div className="hidden sm:flex items-center gap-1.5 text-[12px] text-port-soft min-w-0 flex-1 justify-center">
+        {/* Center: absolutely centered so it's always truly centered */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           {level === 0 ? (
-            <nav className="flex items-center gap-0.5">
+            <nav className="pointer-events-auto hidden sm:flex items-center gap-0.5">
               {NAV_ITEMS.map((item) => {
                 const active = item.to === '/' ? pathname === '/' : pathname.startsWith(item.to);
                 return (
@@ -327,7 +328,7 @@ export default function App() {
               })}
             </nav>
           ) : (
-            <>
+            <div className="pointer-events-auto hidden sm:flex items-center gap-1.5 text-[12px] text-port-soft">
               <span className="text-port-ink font-medium shrink-0">Tohid Meta Port</span>
               {level >= 1 && <span className="text-port-faint shrink-0">/</span>}
               {level >= 1 && (
@@ -343,12 +344,12 @@ export default function App() {
                     : exportData[selectedCountry!]?.categories[selectedCategory!]?.label}
                 </span>
               )}
-            </>
+            </div>
           )}
         </div>
 
         {/* Right: Actions */}
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1 shrink-0 z-10 ml-auto">
           <Link
             to="/admin"
             className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-port-surface border border-transparent hover:border-port-border transition-all text-port-soft hover:text-port-ink"
@@ -358,13 +359,51 @@ export default function App() {
           </Link>
           <button
             type="button"
-            className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-port-surface border border-transparent hover:border-port-border transition-all text-port-soft hover:text-port-ink"
+            className="w-9 h-9 rounded-full hidden sm:flex items-center justify-center hover:bg-port-surface border border-transparent hover:border-port-border transition-all text-port-soft hover:text-port-ink"
             aria-label={t('ariaSearch')}
           >
             <Search className="w-4 h-4" strokeWidth={1.5} />
           </button>
+          {/* Mobile menu button — only on level 0 */}
+          {level === 0 && (
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((v) => !v)}
+              className="sm:hidden w-9 h-9 rounded-full flex items-center justify-center hover:bg-port-surface border border-transparent hover:border-port-border transition-all text-port-soft hover:text-port-ink"
+              aria-label={t('ariaMenu')}
+            >
+              {mobileMenuOpen
+                ? <X className="w-4 h-4" strokeWidth={1.5} />
+                : <Menu className="w-4 h-4" strokeWidth={1.5} />}
+            </button>
+          )}
         </div>
       </header>
+
+      {/* Mobile dropdown nav */}
+      {mobileMenuOpen && level === 0 && (
+        <div className="sm:hidden fixed top-16 inset-x-0 z-40 port-glass-nav border-b border-port-border shadow-lg">
+          <nav className="flex flex-col px-4 py-3 gap-1">
+            {NAV_ITEMS.map((item) => {
+              const active = item.to === '/' ? pathname === '/' : pathname.startsWith(item.to);
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center px-4 py-3 rounded-xl text-[14px] font-medium transition-all ${
+                    active
+                      ? 'text-port-accent bg-port-accent-bg border border-port-accent/20'
+                      : 'text-port-soft hover:text-port-ink hover:bg-port-surface'
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+      )}
 
       {/* ── Main ───────────────────────────────────────────────────────────── */}
       <main className="flex-1 relative">
