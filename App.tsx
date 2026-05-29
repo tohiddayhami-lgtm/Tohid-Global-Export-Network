@@ -7,7 +7,7 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import {
-  Search, ArrowRight, ArrowLeft, Globe, Settings2, Pencil, X, ExternalLink,
+  Search, ArrowRight, ArrowLeft, Globe, Settings2, Pencil, X, ExternalLink, Menu,
   type LucideIcon,
 } from 'lucide-react';
 import type { Category } from './hydrateNetwork.ts';
@@ -137,6 +137,7 @@ export default function App() {
 
   const [titleModalOpen, setTitleModalOpen] = useState(false);
   const [titleDraft, setTitleDraft] = useState({ line1: '', line2: '', badge: '', subtitle: '', stat1: '', stat2: '', stat3: '' });
+  const [navOpen, setNavOpen] = useState(false);
   const titleModalOpenRef = useRef(false);
   titleModalOpenRef.current = titleModalOpen;
 
@@ -271,67 +272,129 @@ export default function App() {
       )}
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-50 h-16 port-glass-nav border-b border-port-border px-4 sm:px-8 flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-50 port-glass-nav border-b border-port-border">
+        <div className="h-16 px-4 sm:px-8 flex items-center justify-between gap-4">
 
-        {/* Left: Logo or Back */}
-        <div className="flex items-center gap-3 shrink-0">
-          {level === 0 ? (
-            <div className="flex items-center gap-2.5 port-header-fade">
-              <div className="w-8 h-8 rounded-full border border-port-accent/40 bg-port-accent-bg flex items-center justify-center shrink-0">
-                <span className="font-serif text-port-accent text-base leading-none">T</span>
+          {/* Left: Logo or Back */}
+          <div className="flex items-center gap-3 shrink-0">
+            {level === 0 ? (
+              <div className="flex items-center gap-2.5 port-header-fade">
+                <div className="w-8 h-8 rounded-full border border-port-accent/40 bg-port-accent-bg flex items-center justify-center shrink-0">
+                  <span className="font-serif text-port-accent text-base leading-none">T</span>
+                </div>
+                <span className="font-semibold text-[14px] tracking-tight hidden sm:block">
+                  Tohid Global Export
+                </span>
               </div>
-              <span className="font-semibold text-[14px] tracking-tight hidden sm:block">
-                Tohid Meta Port
-              </span>
-            </div>
-          ) : (
+            ) : (
+              <button
+                type="button"
+                onClick={goBack}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-port-border hover:border-port-border-hi hover:bg-port-surface transition-all group port-header-fade"
+              >
+                <ArrowLeft className="w-4 h-4 rtl:rotate-180 group-hover:-translate-x-0.5 transition-transform" />
+                <span className="text-sm font-medium">{t('back')}</span>
+              </button>
+            )}
+          </div>
+
+          {/* Center: Nav links on level 0 / Breadcrumb on levels 1-3 */}
+          <div className="hidden md:flex items-center gap-1.5 min-w-0 flex-1 justify-center">
+            {level === 0 ? (
+              <nav className="flex items-center gap-6">
+                <span className="text-sm font-medium text-port-accent">Home</span>
+                <Link to="/about" className="text-sm font-medium text-port-soft hover:text-port-ink transition-colors">About Us</Link>
+                <Link to="/services" className="text-sm font-medium text-port-soft hover:text-port-ink transition-colors">Services</Link>
+                <button
+                  type="button"
+                  onClick={() => setLevel(1)}
+                  className="text-sm font-medium text-port-soft hover:text-port-ink transition-colors"
+                >
+                  Trade Port
+                </button>
+                <Link to="/contact" className="text-sm font-medium text-port-soft hover:text-port-ink transition-colors">Contact Us</Link>
+              </nav>
+            ) : (
+              <div className="flex items-center gap-1.5 text-[12px] text-port-soft min-w-0">
+                <span className="text-port-ink font-medium shrink-0">Meta Port</span>
+                {level >= 1 && <span className="text-port-faint shrink-0">/</span>}
+                {level >= 1 && (
+                  <span className="truncate shrink-0">
+                    {level === 1 ? 'Terminals' : exportData[selectedCountry!]?.label}
+                  </span>
+                )}
+                {level >= 2 && <span className="text-port-faint shrink-0">/</span>}
+                {level >= 2 && (
+                  <span className="truncate">
+                    {level === 2
+                      ? 'Booths'
+                      : exportData[selectedCountry!]?.categories[selectedCategory!]?.label}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Right: Actions */}
+          <div className="flex items-center gap-1 shrink-0">
+            <Link
+              to="/admin"
+              className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-port-surface border border-transparent hover:border-port-border transition-all text-port-soft hover:text-port-ink"
+              aria-label={t('ariaAdmin')}
+            >
+              <Settings2 className="w-4 h-4" strokeWidth={1.5} />
+            </Link>
+            {level > 0 && (
+              <button
+                type="button"
+                className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-port-surface border border-transparent hover:border-port-border transition-all text-port-soft hover:text-port-ink"
+                aria-label={t('ariaSearch')}
+              >
+                <Search className="w-4 h-4" strokeWidth={1.5} />
+              </button>
+            )}
+            {level === 0 && (
+              <button
+                type="button"
+                onClick={() => setNavOpen((o) => !o)}
+                className="md:hidden w-9 h-9 rounded-full flex items-center justify-center hover:bg-port-surface border border-transparent hover:border-port-border transition-all text-port-soft hover:text-port-ink"
+                aria-label="Menu"
+              >
+                {navOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile nav dropdown — level 0 only */}
+        {level === 0 && navOpen && (
+          <div className="md:hidden border-t border-port-border bg-port-surface px-4 py-3 flex flex-col gap-1">
+            <span className="px-4 py-2.5 rounded-xl text-sm font-medium bg-port-accent-bg text-port-accent border border-port-accent/20">
+              Home
+            </span>
+            {([
+              { to: '/about', label: 'About Us' },
+              { to: '/services', label: 'Services' },
+              { to: '/contact', label: 'Contact Us' },
+            ] as const).map(({ to, label }) => (
+              <Link
+                key={to}
+                to={to}
+                onClick={() => setNavOpen(false)}
+                className="px-4 py-2.5 rounded-xl text-sm font-medium text-port-soft hover:bg-port-border/40 hover:text-port-ink transition-colors"
+              >
+                {label}
+              </Link>
+            ))}
             <button
               type="button"
-              onClick={goBack}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-port-border hover:border-port-border-hi hover:bg-port-surface transition-all group port-header-fade"
+              onClick={() => { setNavOpen(false); setLevel(1); }}
+              className="text-start px-4 py-2.5 rounded-xl text-sm font-medium text-port-soft hover:bg-port-border/40 hover:text-port-ink transition-colors"
             >
-              <ArrowLeft className="w-4 h-4 rtl:rotate-180 group-hover:-translate-x-0.5 transition-transform" />
-              <span className="text-sm font-medium">{t('back')}</span>
+              Trade Port
             </button>
-          )}
-        </div>
-
-        {/* Center: Breadcrumb */}
-        <div className="hidden sm:flex items-center gap-1.5 text-[12px] text-port-soft min-w-0 flex-1 justify-center">
-          <span className="text-port-ink font-medium shrink-0">Meta Port</span>
-          {level >= 1 && <span className="text-port-faint shrink-0">/</span>}
-          {level >= 1 && (
-            <span className="truncate shrink-0">
-              {level === 1 ? 'Terminals' : exportData[selectedCountry!]?.label}
-            </span>
-          )}
-          {level >= 2 && <span className="text-port-faint shrink-0">/</span>}
-          {level >= 2 && (
-            <span className="truncate">
-              {level === 2
-                ? 'Booths'
-                : exportData[selectedCountry!]?.categories[selectedCategory!]?.label}
-            </span>
-          )}
-        </div>
-
-        {/* Right: Actions */}
-        <div className="flex items-center gap-1 shrink-0">
-          <Link
-            to="/admin"
-            className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-port-surface border border-transparent hover:border-port-border transition-all text-port-soft hover:text-port-ink"
-            aria-label={t('ariaAdmin')}
-          >
-            <Settings2 className="w-4 h-4" strokeWidth={1.5} />
-          </Link>
-          <button
-            type="button"
-            className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-port-surface border border-transparent hover:border-port-border transition-all text-port-soft hover:text-port-ink"
-            aria-label={t('ariaSearch')}
-          >
-            <Search className="w-4 h-4" strokeWidth={1.5} />
-          </button>
-        </div>
+          </div>
+        )}
       </header>
 
       {/* ── Main ───────────────────────────────────────────────────────────── */}
