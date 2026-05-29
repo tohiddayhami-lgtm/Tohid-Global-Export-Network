@@ -1833,6 +1833,16 @@ export default function AdminPanel() {
                                   </button>
                                 </td>
                               </tr>
+                              <tr key={`desc-${i}`} className="bg-hover/40">
+                                <td colSpan={7} className="px-2 pb-1.5 pt-0.5">
+                                  <input
+                                    className="w-full rounded border border-transparent hover:border-border focus:border-border px-2 py-1 text-xs text-ink-soft placeholder:text-ink-faint bg-transparent focus:bg-white transition-colors outline-none"
+                                    placeholder="Description (optional)…"
+                                    value={row.description ?? ''}
+                                    onChange={(e) => updateCompany(selCat, i, { description: e.target.value || undefined })}
+                                  />
+                                </td>
+                              </tr>
                               {panelOpen && (
                                 <tr key={`shared-${i}`} className="border-t border-blue-100 bg-blue-50/60">
                                   <td colSpan={7} className="px-4 py-3">

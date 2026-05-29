@@ -217,7 +217,7 @@ export default function App() {
   type SearchResult =
     | { kind: 'country'; countryId: string; label: string; flag: string }
     | { kind: 'category'; countryId: string; catId: string; countryLabel: string; catLabel: string; description?: string }
-    | { kind: 'company'; name: string; tag: string; url: string; countryId: string; catId: string; countryLabel: string; catLabel: string };
+    | { kind: 'company'; name: string; tag: string; url: string; description?: string; countryId: string; catId: string; countryLabel: string; catLabel: string };
 
   const searchResults = useMemo<SearchResult[]>(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -234,8 +234,8 @@ export default function App() {
           results.push({ kind: 'category', countryId: cid, catId, countryLabel: country.label, catLabel: cat.label, description: cat.description });
         }
         for (const co of cat.companies) {
-          if (co.name.toLowerCase().includes(q) || co.tag.toLowerCase().includes(q)) {
-            results.push({ kind: 'company', name: co.name, tag: co.tag, url: co.url, countryId: cid, catId, countryLabel: country.label, catLabel: cat.label });
+          if (co.name.toLowerCase().includes(q) || co.tag.toLowerCase().includes(q) || (co.description ?? '').toLowerCase().includes(q)) {
+            results.push({ kind: 'company', name: co.name, tag: co.tag, url: co.url, description: co.description, countryId: cid, catId, countryLabel: country.label, catLabel: cat.label });
           }
         }
       }
@@ -743,6 +743,9 @@ export default function App() {
                         {comp.name}
                       </div>
                       <div className="text-[12px] text-port-soft mt-0.5 truncate">{comp.tag}</div>
+                      {comp.description && (
+                        <div className="text-[11px] text-port-faint mt-1 line-clamp-2 leading-relaxed">{comp.description}</div>
+                      )}
                     </div>
 
                     {/* External link */}
@@ -964,7 +967,11 @@ export default function App() {
                                 </div>
                                 <div className="min-w-0 flex-1">
                                   <p className="text-sm font-medium text-port-ink truncate">{r.name}</p>
-                                  <p className="text-[11px] text-port-faint truncate">{r.countryLabel} · {r.catLabel}</p>
+                                  {r.description ? (
+                                    <p className="text-[11px] text-port-soft truncate">{r.description}</p>
+                                  ) : (
+                                    <p className="text-[11px] text-port-faint truncate">{r.countryLabel} · {r.catLabel}</p>
+                                  )}
                                 </div>
                                 {r.tag && (
                                   <span className="text-[10px] text-port-soft border border-port-border rounded px-1.5 py-0.5 shrink-0">{r.tag}</span>
