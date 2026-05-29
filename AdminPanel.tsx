@@ -21,6 +21,11 @@ import {
   Star,
   Pencil,
   X,
+  Inbox,
+  RefreshCw,
+  MessageCircle,
+  Mail,
+  Phone,
 } from 'lucide-react';
 import type { CategoryJson, CompanyJson, CountryJson } from './networkTypes.ts';
 import { ICON_KEYS, getIconByKey } from './iconRegistry.ts';
@@ -110,7 +115,18 @@ function emptyCountry(id: string, defaultCategoryLabel: string): CountryJson {
   };
 }
 
-type AdminTab = 'network' | 'pages' | 'seo' | 'news';
+type AdminTab = 'network' | 'pages' | 'seo' | 'news' | 'messages';
+
+interface ContactMessage {
+  id: string;
+  name: string;
+  email: string;
+  whatsapp: string;
+  subject: string;
+  message: string;
+  submittedAt: string;
+  read: boolean;
+}
 
 export default function AdminPanel() {
   const { t } = useLocale();
@@ -131,6 +147,9 @@ export default function AdminPanel() {
   const [pass, setPass] = useState('');
   const [err, setErr] = useState('');
   const [activeTab, setActiveTab] = useState<AdminTab>('network');
+  const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [messagesError, setMessagesError] = useState('');
   const [sharedCatPanel, setSharedCatPanel] = useState<{ catId: string; idx: number } | null>(null);
   const [showPresetPicker, setShowPresetPicker] = useState(false);
   const [presetSearch, setPresetSearch] = useState('');
@@ -139,6 +158,59 @@ export default function AdminPanel() {
   const [pageDraft, setPageDraft] = useState<PageContent>(() => ({ ...pageContent }));
   useEffect(() => { setPageDraft({ ...pageContent }); }, [pageContent]);
   const savePageContent = () => updatePageContent(pageDraft);
+
+  // Load contact messages from Firestore
+  const loadContactMessages = useCallback(async () => {
+    const { firebaseApp: fb } = await import('./firebase.ts');
+    if (!fb) {
+      // Fallback: read from localStorage
+      try {
+        const stored = JSON.parse(localStorage.getItem('contact_messages') || '[]') as ContactMessage[];
+        setContactMessages(stored.sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)));
+      } catch { setContactMessages([]); }
+      return;
+    }
+    setMessagesLoading(true);
+    setMessagesError('');
+    try {
+      const { getFirestore, collection, getDocs, orderBy, query } = await import('firebase/firestore');
+      const db = getFirestore(fb);
+      const q = query(collection(db, 'contact_messages'), orderBy('createdAt', 'desc'));
+      const snap = await getDocs(q);
+      const msgs: ContactMessage[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<ContactMessage, 'id'>) }));
+      setContactMessages(msgs);
+    } catch (e) {
+      console.error('[Admin] Failed to load contact messages:', e);
+      setMessagesError('Failed to load messages. Check Firestore rules or connection.');
+    } finally {
+      setMessagesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (adminOk && activeTab === 'messages') {
+      void loadContactMessages();
+    }
+  }, [adminOk, activeTab, loadContactMessages]);
+
+  const exportMessagesCSV = () => {
+    if (contactMessages.length === 0) return;
+    const headers = ['Name', 'Email', 'WhatsApp', 'Subject', 'Message', 'Submitted At'];
+    const rows = contactMessages.map((m) => [
+      m.name, m.email, m.whatsapp ?? '', m.subject ?? '', m.message, m.submittedAt,
+    ]);
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const bom = '﻿';
+    const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `contact-messages-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   // Local draft — completely isolated from context/Firestore until user clicks Save
   const [draftLine1, setDraftLine1] = useState(rootNodeLines.line1);
@@ -598,6 +670,23 @@ export default function AdminPanel() {
           {articles.length > 0 && (
             <span className="ml-0.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-ink text-white text-[9px] font-bold">
               {articles.length}
+            </span>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('messages')}
+          className={`inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'messages'
+              ? 'border-ink text-ink'
+              : 'border-transparent text-ink-soft hover:text-ink'
+          }`}
+        >
+          <Inbox className="w-3.5 h-3.5" />
+          Contact Messages
+          {contactMessages.length > 0 && (
+            <span className="ml-0.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-emerald-600 text-white text-[9px] font-bold">
+              {contactMessages.length}
             </span>
           )}
         </button>
@@ -1791,6 +1880,115 @@ export default function AdminPanel() {
           )}
         </div>
       </div>
+      )}
+
+      {/* Contact Messages Tab */}
+      {activeTab === 'messages' && (
+        <div className="max-w-5xl mx-auto p-4 space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h2 className="font-serif text-lg">Contact Form Messages</h2>
+              <p className="text-ink-soft text-sm mt-0.5">{contactMessages.length} message{contactMessages.length !== 1 ? 's' : ''} received</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void loadContactMessages()}
+                disabled={messagesLoading}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-hover disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${messagesLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+              <button
+                type="button"
+                onClick={exportMessagesCSV}
+                disabled={contactMessages.length === 0}
+                className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 text-white px-4 py-1.5 text-xs font-medium hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export Excel (CSV)
+              </button>
+            </div>
+          </div>
+
+          {messagesError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {messagesError}
+            </div>
+          )}
+
+          {messagesLoading ? (
+            <div className="flex items-center justify-center py-16 text-ink-soft gap-2">
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              Loading messages...
+            </div>
+          ) : contactMessages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
+              <Inbox className="w-10 h-10 text-ink-faint" strokeWidth={1} />
+              <p className="text-ink-soft text-sm">No messages yet.</p>
+              <p className="text-ink-faint text-xs">When visitors submit the contact form, messages will appear here.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-border bg-white">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-hover text-xs text-ink-soft uppercase tracking-wide">
+                    <th className="px-4 py-3 text-left font-medium">#</th>
+                    <th className="px-4 py-3 text-left font-medium">Name</th>
+                    <th className="px-4 py-3 text-left font-medium">
+                      <span className="inline-flex items-center gap-1"><Mail className="w-3 h-3" />Email</span>
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium">
+                      <span className="inline-flex items-center gap-1"><MessageCircle className="w-3 h-3 text-[#25D366]" />WhatsApp</span>
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium">Subject</th>
+                    <th className="px-4 py-3 text-left font-medium">Message</th>
+                    <th className="px-4 py-3 text-left font-medium">
+                      <span className="inline-flex items-center gap-1"><Phone className="w-3 h-3" />Date</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {contactMessages.map((msg, i) => (
+                    <tr key={msg.id} className="hover:bg-hover/50 transition-colors">
+                      <td className="px-4 py-3 text-ink-faint text-xs">{i + 1}</td>
+                      <td className="px-4 py-3 font-medium whitespace-nowrap">{msg.name}</td>
+                      <td className="px-4 py-3">
+                        <a href={`mailto:${msg.email}`} className="text-blue-600 hover:underline text-xs">{msg.email}</a>
+                      </td>
+                      <td className="px-4 py-3">
+                        {msg.whatsapp ? (
+                          <a
+                            href={`https://wa.me/${msg.whatsapp.replace(/[^\d+]/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[#25D366] hover:underline text-xs font-medium"
+                          >
+                            <MessageCircle className="w-3 h-3" />
+                            {msg.whatsapp}
+                          </a>
+                        ) : (
+                          <span className="text-ink-faint text-xs">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-ink-soft text-xs max-w-[140px] truncate">{msg.subject || '—'}</td>
+                      <td className="px-4 py-3 text-xs text-ink max-w-[260px]">
+                        <p className="line-clamp-2 leading-relaxed">{msg.message}</p>
+                      </td>
+                      <td className="px-4 py-3 text-ink-faint text-xs whitespace-nowrap">
+                        {msg.submittedAt ? new Date(msg.submittedAt).toLocaleString('en-GB', {
+                          day: '2-digit', month: 'short', year: 'numeric',
+                          hour: '2-digit', minute: '2-digit',
+                        }) : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
