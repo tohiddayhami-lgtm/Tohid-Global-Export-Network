@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { label: 'Home', to: '/' },
   { label: 'About Us', to: '/about' },
   { label: 'Services', to: '/services' },
+  { label: 'News', to: '/news' },
   { label: 'Contact Us', to: '/contact' },
 ];
 import type { Category, Country } from './hydrateNetwork.ts';

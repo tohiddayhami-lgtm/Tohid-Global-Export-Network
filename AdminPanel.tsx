@@ -18,6 +18,9 @@ import {
   Globe,
   Search,
   Share2,
+  Star,
+  Pencil,
+  X,
 } from 'lucide-react';
 import type { CategoryJson, CompanyJson, CountryJson } from './networkTypes.ts';
 import { ICON_KEYS, getIconByKey } from './iconRegistry.ts';
@@ -31,6 +34,7 @@ import {
 } from './networkContext.tsx';
 import { useLocale } from './i18n/LocaleContext.tsx';
 import { usePageContent, DEFAULT_PAGE_CONTENT, DEFAULT_SEO, type PageContent, type SeoContent } from './pageContentContext.tsx';
+import { useNews, NEWS_CATEGORIES, type NewsArticle } from './newsContext.tsx';
 
 const MAX_FAVICON_BYTES = 256 * 1024;
 
@@ -106,13 +110,23 @@ function emptyCountry(id: string, defaultCategoryLabel: string): CountryJson {
   };
 }
 
-type AdminTab = 'network' | 'pages' | 'seo';
+type AdminTab = 'network' | 'pages' | 'seo' | 'news';
 
 export default function AdminPanel() {
   const { t } = useLocale();
   const { adminOk, login, logout, networkJson, setNetworkJson, syncMode, rootNodeLines, setRootNodeLines, flushNetworkToCloudSoon } =
     useExportData();
   const { pageContent, updatePageContent } = usePageContent();
+  const { articles, addArticle, updateArticle, removeArticle } = useNews();
+
+  // News editor state
+  const emptyDraft = (): Omit<NewsArticle, 'id'> => ({
+    title: '', excerpt: '', content: '', category: 'Trade & Commerce',
+    imageUrl: '', publishedAt: new Date().toISOString().slice(0, 10),
+    author: 'Tohid Dayhami', published: false, featured: false, tags: '',
+  });
+  const [newsDraft, setNewsDraft] = useState<Omit<NewsArticle, 'id'> | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [user, setUser] = useState('');
   const [pass, setPass] = useState('');
   const [err, setErr] = useState('');
@@ -570,6 +584,23 @@ export default function AdminPanel() {
           <Globe className="w-3.5 h-3.5" />
           SEO Settings
         </button>
+        <button
+          type="button"
+          onClick={() => { setActiveTab('news'); setNewsDraft(null); setEditingId(null); }}
+          className={`inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'news'
+              ? 'border-ink text-ink'
+              : 'border-transparent text-ink-soft hover:text-ink'
+          }`}
+        >
+          <FileText className="w-3.5 h-3.5" />
+          Business News
+          {articles.length > 0 && (
+            <span className="ml-0.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-ink text-white text-[9px] font-bold">
+              {articles.length}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Pages Content Tab */}
@@ -705,6 +736,211 @@ export default function AdminPanel() {
               </button>
             </div>
           </section>
+        </div>
+      )}
+
+      {/* ── News Tab ── */}
+      {activeTab === 'news' && (
+        <div className="max-w-4xl mx-auto p-4 space-y-4">
+
+          {/* Add / Edit form */}
+          {newsDraft !== null ? (
+            <section className="rounded-xl border border-border bg-white p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="font-medium text-base">{editingId ? 'Edit Article' : 'New Article'}</h2>
+                <button type="button" onClick={() => { setNewsDraft(null); setEditingId(null); }}
+                  className="p-1.5 rounded-lg hover:bg-hover text-ink-soft">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-3">
+                <label className="block text-xs sm:col-span-2">
+                  <span className="text-ink-soft">Title *</span>
+                  <input className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
+                    value={newsDraft.title}
+                    onChange={(e) => setNewsDraft((d) => d && ({ ...d, title: e.target.value }))}
+                    placeholder="Article headline..." />
+                </label>
+                <label className="block text-xs">
+                  <span className="text-ink-soft">Category</span>
+                  <select className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
+                    value={newsDraft.category}
+                    onChange={(e) => setNewsDraft((d) => d && ({ ...d, category: e.target.value }))}>
+                    {NEWS_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </label>
+                <label className="block text-xs">
+                  <span className="text-ink-soft">Author</span>
+                  <input className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
+                    value={newsDraft.author}
+                    onChange={(e) => setNewsDraft((d) => d && ({ ...d, author: e.target.value }))} />
+                </label>
+                <label className="block text-xs">
+                  <span className="text-ink-soft">Publish Date</span>
+                  <input type="date" className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
+                    value={newsDraft.publishedAt.slice(0, 10)}
+                    onChange={(e) => setNewsDraft((d) => d && ({ ...d, publishedAt: e.target.value }))} />
+                </label>
+                <label className="block text-xs">
+                  <span className="text-ink-soft">Image URL (optional)</span>
+                  <input className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
+                    value={newsDraft.imageUrl}
+                    onChange={(e) => setNewsDraft((d) => d && ({ ...d, imageUrl: e.target.value }))}
+                    placeholder="https://..." />
+                </label>
+                <label className="block text-xs sm:col-span-2">
+                  <span className="text-ink-soft">Excerpt (1–2 sentences shown in card) *</span>
+                  <textarea rows={2} className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm resize-y"
+                    value={newsDraft.excerpt}
+                    onChange={(e) => setNewsDraft((d) => d && ({ ...d, excerpt: e.target.value }))}
+                    placeholder="Short summary of the article..." />
+                </label>
+                <label className="block text-xs sm:col-span-2">
+                  <span className="text-ink-soft">Full Content *</span>
+                  <textarea rows={8} className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm resize-y font-mono text-xs"
+                    value={newsDraft.content}
+                    onChange={(e) => setNewsDraft((d) => d && ({ ...d, content: e.target.value }))}
+                    placeholder="Full article body. Use blank lines to separate paragraphs." />
+                </label>
+                <label className="block text-xs sm:col-span-2">
+                  <span className="text-ink-soft">Tags (comma separated)</span>
+                  <input className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
+                    value={newsDraft.tags}
+                    onChange={(e) => setNewsDraft((d) => d && ({ ...d, tags: e.target.value }))}
+                    placeholder="trade, export, iran, ..." />
+                </label>
+              </div>
+
+              {/* Toggles */}
+              <div className="flex flex-wrap gap-3 pt-1">
+                <label className="flex items-center gap-2 cursor-pointer text-sm select-none">
+                  <input type="checkbox" className="w-4 h-4 rounded accent-ink"
+                    checked={newsDraft.published}
+                    onChange={(e) => setNewsDraft((d) => d && ({ ...d, published: e.target.checked }))} />
+                  <span className="text-ink-soft">Published (visible on site)</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-sm select-none">
+                  <input type="checkbox" className="w-4 h-4 rounded accent-ink"
+                    checked={newsDraft.featured}
+                    onChange={(e) => setNewsDraft((d) => d && ({ ...d, featured: e.target.checked }))} />
+                  <span className="text-ink-soft">Featured (shown in hero spotlight)</span>
+                </label>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <button type="button"
+                  disabled={!newsDraft.title.trim() || !newsDraft.excerpt.trim() || !newsDraft.content.trim()}
+                  onClick={() => {
+                    if (!newsDraft.title.trim()) return;
+                    if (editingId) {
+                      updateArticle(editingId, newsDraft);
+                    } else {
+                      addArticle(newsDraft);
+                    }
+                    setNewsDraft(null); setEditingId(null);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-ink text-white px-5 py-2 text-sm font-medium hover:opacity-90 disabled:opacity-40 disabled:pointer-events-none">
+                  <Save className="w-3.5 h-3.5" />
+                  {editingId ? 'Save Changes' : 'Publish Article'}
+                </button>
+                <button type="button" onClick={() => { setNewsDraft(null); setEditingId(null); }}
+                  className="text-sm text-ink-soft hover:text-ink">
+                  Cancel
+                </button>
+              </div>
+            </section>
+          ) : (
+            <div className="flex items-center justify-between">
+              <h2 className="font-medium text-base">
+                {articles.length} article{articles.length !== 1 ? 's' : ''} total
+                <span className="ml-2 text-xs text-ink-soft font-normal">
+                  ({articles.filter((a) => a.published).length} published)
+                </span>
+              </h2>
+              <button type="button" onClick={() => setNewsDraft(emptyDraft())}
+                className="inline-flex items-center gap-1.5 rounded-full bg-ink text-white px-4 py-1.5 text-sm font-medium hover:opacity-90">
+                <Plus className="w-3.5 h-3.5" />
+                New Article
+              </button>
+            </div>
+          )}
+
+          {/* Articles list */}
+          {newsDraft === null && (
+            <div className="space-y-2">
+              {articles.length === 0 && (
+                <p className="text-center text-ink-soft text-sm py-10 rounded-xl border border-border bg-white">
+                  No articles yet. Click "New Article" to create your first one.
+                </p>
+              )}
+              {articles.map((article) => (
+                <div key={article.id}
+                  className={`rounded-xl border bg-white p-4 flex flex-wrap items-start gap-3 transition-colors ${
+                    article.published ? 'border-border' : 'border-border bg-hover/50'
+                  }`}>
+                  {/* Status dot */}
+                  <div className="flex flex-col items-center gap-1 pt-0.5">
+                    <div className={`w-2.5 h-2.5 rounded-full ${article.published ? 'bg-emerald-500' : 'bg-ink-faint'}`} title={article.published ? 'Published' : 'Draft'} />
+                    {article.featured && <div className="w-2.5 h-2.5 rounded-full bg-amber-400" title="Featured" />}
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-soft border border-border rounded px-1.5 py-0.5">
+                        {article.category}
+                      </span>
+                      {article.featured && (
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-600 border border-amber-200 bg-amber-50 rounded px-1.5 py-0.5">
+                          Featured
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm font-medium text-ink truncate">{article.title || '(untitled)'}</p>
+                    <p className="text-xs text-ink-soft truncate mt-0.5">{article.excerpt}</p>
+                    <p className="text-[10px] text-ink-faint mt-1">
+                      {article.author} · {new Date(article.publishedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                    </p>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button type="button"
+                      onClick={() => updateArticle(article.id, { published: !article.published })}
+                      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                        article.published
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                          : 'border-border text-ink-soft hover:bg-hover'
+                      }`}>
+                      {article.published ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                      {article.published ? 'Live' : 'Draft'}
+                    </button>
+                    <button type="button"
+                      onClick={() => updateArticle(article.id, { featured: !article.featured })}
+                      title={article.featured ? 'Remove from featured' : 'Set as featured'}
+                      className={`p-1.5 rounded-lg border transition-colors ${
+                        article.featured
+                          ? 'border-amber-200 bg-amber-50 text-amber-600'
+                          : 'border-border text-ink-soft hover:bg-hover'
+                      }`}>
+                      <Star className="w-3.5 h-3.5" />
+                    </button>
+                    <button type="button"
+                      onClick={() => { setEditingId(article.id); setNewsDraft({ ...article }); }}
+                      className="p-1.5 rounded-lg border border-border text-ink-soft hover:bg-hover hover:text-ink transition-colors">
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button type="button"
+                      onClick={() => { if (window.confirm(`Delete "${article.title}"?`)) removeArticle(article.id); }}
+                      className="p-1.5 rounded-lg border border-border text-red-600 hover:bg-red-50 transition-colors">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
