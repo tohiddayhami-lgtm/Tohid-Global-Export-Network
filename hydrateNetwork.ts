@@ -32,6 +32,8 @@ export function hydrateNetwork(json: ExportNetworkJson): ExportDataMap {
 
 function hydrateCountry(c: CountryJson): Country {
   const categories: Record<string, Category> = {};
+
+  // First pass: build each category normally
   for (const [kid, cat] of Object.entries(c.categories ?? {})) {
     categories[kid] = {
       label: cat.label,
@@ -40,6 +42,23 @@ function hydrateCountry(c: CountryJson): Country {
       hidden: cat.hidden === true,
     };
   }
+
+  // Second pass: inject companies that are shared into their target categories
+  for (const [kid, cat] of Object.entries(c.categories ?? {})) {
+    for (const company of (cat.companies ?? [])) {
+      if (!company.sharedCategories?.length) continue;
+      for (const targetCatId of company.sharedCategories) {
+        if (targetCatId === kid || !categories[targetCatId]) continue;
+        const alreadyPresent = categories[targetCatId].companies.some(
+          (co) => co.name === company.name && co.url === company.url,
+        );
+        if (!alreadyPresent) {
+          categories[targetCatId].companies.push({ ...company });
+        }
+      }
+    }
+  }
+
   return {
     id: c.id,
     label: c.label,

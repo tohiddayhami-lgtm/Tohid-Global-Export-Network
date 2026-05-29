@@ -17,6 +17,7 @@ import {
   FileText,
   Globe,
   Search,
+  Share2,
 } from 'lucide-react';
 import type { CategoryJson, CompanyJson, CountryJson } from './networkTypes.ts';
 import { ICON_KEYS } from './iconRegistry.ts';
@@ -115,6 +116,7 @@ export default function AdminPanel() {
   const [pass, setPass] = useState('');
   const [err, setErr] = useState('');
   const [activeTab, setActiveTab] = useState<AdminTab>('network');
+  const [sharedCatPanel, setSharedCatPanel] = useState<{ catId: string; idx: number } | null>(null);
 
   // Page content draft state
   const [pageDraft, setPageDraft] = useState<PageContent>(() => ({ ...pageContent }));
@@ -1201,7 +1203,7 @@ export default function AdminPanel() {
                     </button>
                   </div>
                   <div className="overflow-x-auto border border-border rounded-lg">
-                    <table className="w-full text-sm min-w-[720px]">
+                    <table className="w-full text-sm min-w-[760px]">
                       <thead className="bg-hover text-start text-xs text-ink-soft">
                         <tr>
                           <th className="p-2">{t('thName')}</th>
@@ -1211,65 +1213,139 @@ export default function AdminPanel() {
                           <th className="p-2 w-24 text-center" title={t('openUrlNewTabTitle')}>
                             {t('thOpen')}
                           </th>
+                          <th className="p-2 w-20 text-center" title="Also show in other categories">
+                            Also In
+                          </th>
                           <th className="p-2 w-10" />
                         </tr>
                       </thead>
                       <tbody>
-                        {activeCat.companies.map((row, i) => (
-                          <tr key={i} className="border-t border-border">
-                            <td className="p-1">
-                              <input
-                                className="w-full rounded border border-transparent hover:border-border px-1 py-1"
-                                value={row.name}
-                                onChange={(e) => updateCompany(selCat, i, { name: e.target.value })}
-                              />
-                            </td>
-                            <td className="p-1">
-                              <input
-                                className="w-full rounded border border-transparent hover:border-border px-1 py-1"
-                                value={row.tag}
-                                onChange={(e) => updateCompany(selCat, i, { tag: e.target.value })}
-                              />
-                            </td>
-                            <td className="p-1">
-                              <input
-                                className="w-full rounded border border-transparent hover:border-border px-1 py-1 text-center"
-                                maxLength={3}
-                                value={row.initial}
-                                onChange={(e) => updateCompany(selCat, i, { initial: e.target.value })}
-                              />
-                            </td>
-                            <td className="p-1">
-                              <input
-                                className="w-full rounded border border-transparent hover:border-border px-1 py-1"
-                                value={row.url}
-                                onChange={(e) => updateCompany(selCat, i, { url: e.target.value })}
-                                placeholder="https://..."
-                              />
-                            </td>
-                            <td className="p-1 text-center">
-                              <button
-                                type="button"
-                                disabled={!row.url.trim()}
-                                title={t('openUrlNewTabTitle')}
-                                aria-label={t('openUrlAria')}
-                                onClick={() => openCompanyUrlInNewTab(row.url, t('invalidUrl'))}
-                                className="inline-flex items-center justify-center rounded-lg border border-border p-2 text-ink hover:bg-hover disabled:opacity-40 disabled:pointer-events-none"
-                              >
-                                <ExternalLink className="w-4 h-4" />
-                              </button>
-                            </td>
-                            <td className="p-1">
-                              <button
-                                type="button"
-                                className="p-1 rounded text-red-600 hover:bg-red-50"
-                                onClick={() => removeCompany(selCat, i)}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+                        {activeCat.companies.map((row, i) => {
+                          const panelOpen = sharedCatPanel?.catId === selCat && sharedCatPanel.idx === i;
+                          const sharedCount = row.sharedCategories?.length ?? 0;
+                          const otherCats = catKeys.filter((cid) => cid !== selCat);
+                          return (
+                            <>
+                              <tr key={i} className="border-t border-border">
+                                <td className="p-1">
+                                  <input
+                                    className="w-full rounded border border-transparent hover:border-border px-1 py-1"
+                                    value={row.name}
+                                    onChange={(e) => updateCompany(selCat, i, { name: e.target.value })}
+                                  />
+                                </td>
+                                <td className="p-1">
+                                  <input
+                                    className="w-full rounded border border-transparent hover:border-border px-1 py-1"
+                                    value={row.tag}
+                                    onChange={(e) => updateCompany(selCat, i, { tag: e.target.value })}
+                                  />
+                                </td>
+                                <td className="p-1">
+                                  <input
+                                    className="w-full rounded border border-transparent hover:border-border px-1 py-1 text-center"
+                                    maxLength={3}
+                                    value={row.initial}
+                                    onChange={(e) => updateCompany(selCat, i, { initial: e.target.value })}
+                                  />
+                                </td>
+                                <td className="p-1">
+                                  <input
+                                    className="w-full rounded border border-transparent hover:border-border px-1 py-1"
+                                    value={row.url}
+                                    onChange={(e) => updateCompany(selCat, i, { url: e.target.value })}
+                                    placeholder="https://..."
+                                  />
+                                </td>
+                                <td className="p-1 text-center">
+                                  <button
+                                    type="button"
+                                    disabled={!row.url.trim()}
+                                    title={t('openUrlNewTabTitle')}
+                                    aria-label={t('openUrlAria')}
+                                    onClick={() => openCompanyUrlInNewTab(row.url, t('invalidUrl'))}
+                                    className="inline-flex items-center justify-center rounded-lg border border-border p-2 text-ink hover:bg-hover disabled:opacity-40 disabled:pointer-events-none"
+                                  >
+                                    <ExternalLink className="w-4 h-4" />
+                                  </button>
+                                </td>
+                                <td className="p-1 text-center">
+                                  <button
+                                    type="button"
+                                    title="Show in multiple categories"
+                                    onClick={() =>
+                                      setSharedCatPanel(panelOpen ? null : { catId: selCat, idx: i })
+                                    }
+                                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-medium transition-colors ${
+                                      panelOpen
+                                        ? 'border-ink bg-ink text-white'
+                                        : sharedCount > 0
+                                          ? 'border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100'
+                                          : 'border-border text-ink-soft hover:bg-hover'
+                                    }`}
+                                  >
+                                    <Share2 className="w-3 h-3" />
+                                    {sharedCount > 0 && <span>{sharedCount}</span>}
+                                  </button>
+                                </td>
+                                <td className="p-1">
+                                  <button
+                                    type="button"
+                                    className="p-1 rounded text-red-600 hover:bg-red-50"
+                                    onClick={() => removeCompany(selCat, i)}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </td>
+                              </tr>
+                              {panelOpen && (
+                                <tr key={`shared-${i}`} className="border-t border-blue-100 bg-blue-50/60">
+                                  <td colSpan={7} className="px-4 py-3">
+                                    <p className="text-[11px] font-semibold text-blue-700 uppercase tracking-wide mb-2">
+                                      Also show "{row.name || 'this brand'}" in:
+                                    </p>
+                                    {otherCats.length === 0 ? (
+                                      <p className="text-xs text-ink-faint italic">
+                                        No other categories in this country yet. Add more categories first.
+                                      </p>
+                                    ) : (
+                                      <div className="flex flex-wrap gap-3">
+                                        {otherCats.map((cid) => {
+                                          const checked = (row.sharedCategories ?? []).includes(cid);
+                                          const catLabel = country?.categories[cid]?.label ?? cid;
+                                          const isHidden = country?.categories[cid]?.hidden;
+                                          return (
+                                            <label
+                                              key={cid}
+                                              className="flex items-center gap-2 cursor-pointer group select-none"
+                                            >
+                                              <input
+                                                type="checkbox"
+                                                checked={checked}
+                                                onChange={(e) => {
+                                                  const cur = row.sharedCategories ?? [];
+                                                  const next = e.target.checked
+                                                    ? [...cur.filter((id) => id !== cid), cid]
+                                                    : cur.filter((id) => id !== cid);
+                                                  updateCompany(selCat, i, { sharedCategories: next.length ? next : undefined });
+                                                }}
+                                                className="w-4 h-4 rounded accent-blue-600 cursor-pointer"
+                                              />
+                                              <span className={`text-sm ${checked ? 'text-ink font-medium' : 'text-ink-soft'} ${isHidden ? 'line-through opacity-50' : ''}`}>
+                                                {catLabel}
+                                                {isHidden && <span className="ml-1 text-[10px] text-ink-faint">(hidden)</span>}
+                                              </span>
+                                            </label>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
+                              )}
+                            </>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

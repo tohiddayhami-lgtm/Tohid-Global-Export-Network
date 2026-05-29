@@ -77,6 +77,7 @@ export function validateNetwork(data: unknown): data is ExportNetworkJson {
         if (!isRecord(co)) return false;
         if (typeof co.name !== 'string' || typeof co.tag !== 'string') return false;
         if (typeof co.initial !== 'string' || typeof co.url !== 'string') return false;
+        if ('sharedCategories' in co && (!Array.isArray(co.sharedCategories) || (co.sharedCategories as unknown[]).some((id) => typeof id !== 'string'))) return false;
       }
     }
   }

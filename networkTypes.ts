@@ -15,6 +15,8 @@ export interface CompanyJson {
   tag: string;
   initial: string;
   url: string;
+  /** Category IDs (siblings in the same country) where this company also appears */
+  sharedCategories?: string[];
 }
 
 export interface CategoryJson {
