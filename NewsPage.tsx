@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Calendar, Clock, ArrowRight, Star, Tag } from 'lucide-react';
 import PageHeader from './PageHeader.tsx';
 import SeoHead from './SeoHead.tsx';
-import { useNews, NEWS_CATEGORIES, categoryColor } from './newsContext.tsx';
+import { useNews, NEWS_CATEGORIES, categoryColor, pickLang, hasFa, hasEn } from './newsContext.tsx';
 
 function formatDate(iso: string) {
   try {
@@ -50,6 +50,7 @@ export default function NewsPage() {
   const { pathname } = useLocation();
   const { publishedArticles } = useNews();
   const [activeCategory, setActiveCategory] = useState<string>('All');
+  const [siteLang, setSiteLang] = useState<'en' | 'fa'>('en');
 
   const featured = publishedArticles.find((a) => a.featured) ?? publishedArticles[0];
   const rest = publishedArticles.filter((a) => a.id !== featured?.id);
@@ -82,6 +83,25 @@ export default function NewsPage() {
             <p className="mt-3 text-port-soft text-base max-w-lg mx-auto">
               Stay informed with the latest trade, economy, and market intelligence.
             </p>
+            {/* Language toggle */}
+            {publishedArticles.some((a) => hasFa(a)) && (
+              <div className="mt-5 inline-flex rounded-full border border-port-border bg-port-surface p-0.5 gap-0.5">
+                {(['en', 'fa'] as const).map((l) => (
+                  <button
+                    key={l}
+                    type="button"
+                    onClick={() => setSiteLang(l)}
+                    className={`px-4 py-1.5 rounded-full text-[12px] font-semibold tracking-wide transition-all ${
+                      siteLang === l
+                        ? 'bg-port-accent text-port-bg'
+                        : 'text-port-soft hover:text-port-ink'
+                    }`}
+                  >
+                    {l === 'en' ? 'English' : 'فارسی'}
+                  </button>
+                ))}
+              </div>
+            )}
           </motion.div>
         </section>
 
@@ -120,11 +140,19 @@ export default function NewsPage() {
 
                       {/* Content */}
                       <div className="absolute bottom-0 inset-x-0 p-5 sm:p-8">
-                        <h2 className="font-serif text-xl sm:text-2xl lg:text-3xl text-port-ink group-hover:text-port-accent transition-colors leading-tight mb-2 line-clamp-2">
-                          {featured.title}
+                        {hasFa(featured) && hasEn(featured) && (
+                          <span className="inline-flex items-center gap-1 mb-2 px-2 py-0.5 rounded-full bg-port-faint/30 border border-port-border text-[9px] text-port-soft font-medium tracking-wide uppercase">EN · FA</span>
+                        )}
+                        {hasFa(featured) && !hasEn(featured) && (
+                          <span className="inline-flex items-center gap-1 mb-2 px-2 py-0.5 rounded-full bg-port-accent-bg border border-port-accent/20 text-[9px] text-port-accent font-medium tracking-wide">فارسی</span>
+                        )}
+                        <h2 dir={pickLang(featured.title, featured.titleFa, siteLang).dir}
+                          className={`font-serif text-xl sm:text-2xl lg:text-3xl text-port-ink group-hover:text-port-accent transition-colors leading-tight mb-2 line-clamp-2 ${pickLang(featured.title, featured.titleFa, siteLang).dir === 'rtl' ? 'text-right' : ''}`}>
+                          {pickLang(featured.title, featured.titleFa, siteLang).text}
                         </h2>
-                        <p className="text-port-soft text-sm leading-relaxed line-clamp-2 hidden sm:block mb-4 max-w-2xl">
-                          {featured.excerpt}
+                        <p dir={pickLang(featured.excerpt, featured.excerptFa, siteLang).dir}
+                          className={`text-port-soft text-sm leading-relaxed line-clamp-2 hidden sm:block mb-4 max-w-2xl ${pickLang(featured.excerpt, featured.excerptFa, siteLang).dir === 'rtl' ? 'text-right' : ''}`}>
+                          {pickLang(featured.excerpt, featured.excerptFa, siteLang).text}
                         </p>
                         <div className="flex items-center justify-between flex-wrap gap-3">
                           <div className="flex items-center gap-3 text-[11px] text-port-faint">
@@ -193,11 +221,25 @@ export default function NewsPage() {
 
                         {/* Body */}
                         <div className="flex flex-col flex-1 p-4 gap-3">
-                          <h3 className="font-semibold text-[14px] text-port-ink group-hover:text-port-accent transition-colors leading-snug line-clamp-2">
-                            {article.title}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {hasFa(article) && hasEn(article) && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider bg-port-faint/20 border border-port-border text-port-faint uppercase">EN·FA</span>
+                            )}
+                            {hasFa(article) && !hasEn(article) && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider bg-port-accent-bg border border-port-accent/20 text-port-accent">فارسی</span>
+                            )}
+                          </div>
+                          <h3
+                            dir={pickLang(article.title, article.titleFa, siteLang).dir}
+                            className={`font-semibold text-[14px] text-port-ink group-hover:text-port-accent transition-colors leading-snug line-clamp-2 ${pickLang(article.title, article.titleFa, siteLang).dir === 'rtl' ? 'text-right' : ''}`}
+                          >
+                            {pickLang(article.title, article.titleFa, siteLang).text}
                           </h3>
-                          <p className="text-[12px] text-port-soft leading-relaxed line-clamp-3 flex-1">
-                            {article.excerpt}
+                          <p
+                            dir={pickLang(article.excerpt, article.excerptFa, siteLang).dir}
+                            className={`text-[12px] text-port-soft leading-relaxed line-clamp-3 flex-1 ${pickLang(article.excerpt, article.excerptFa, siteLang).dir === 'rtl' ? 'text-right' : ''}`}
+                          >
+                            {pickLang(article.excerpt, article.excerptFa, siteLang).text}
                           </p>
 
                           {/* Footer */}

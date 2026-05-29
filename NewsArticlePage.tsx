@@ -1,9 +1,10 @@
+import { useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ArrowLeft, Calendar, Clock, Tag, Share2, ChevronRight } from 'lucide-react';
 import PageHeader from './PageHeader.tsx';
 import SeoHead from './SeoHead.tsx';
-import { useNews, categoryColor } from './newsContext.tsx';
+import { useNews, categoryColor, pickLang, hasFa, hasEn } from './newsContext.tsx';
 
 function formatDate(iso: string) {
   try {
@@ -36,6 +37,7 @@ export default function NewsArticlePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { publishedArticles } = useNews();
+  const [lang, setLang] = useState<'en' | 'fa'>('en');
 
   const article = publishedArticles.find((a) => a.id === id);
 
@@ -55,7 +57,14 @@ export default function NewsArticlePage() {
     .filter((a) => a.id !== article.id && a.category === article.category)
     .slice(0, 3);
 
-  const paragraphs = article.content.split('\n').filter(Boolean);
+  const articleHasFa = hasFa(article);
+  const articleHasEn = hasEn(article);
+  const activeLang = articleHasFa && !articleHasEn ? 'fa' : lang;
+
+  const titleDisplay  = pickLang(article.title,   article.titleFa,   activeLang);
+  const excerptDisplay = pickLang(article.excerpt, article.excerptFa, activeLang);
+  const contentDisplay = pickLang(article.content, article.contentFa, activeLang);
+  const paragraphs = contentDisplay.text.split('\n').filter(Boolean);
 
   const handleShare = () => {
     if (navigator.share) {
@@ -110,14 +119,40 @@ export default function NewsArticlePage() {
                 {article.category}
               </span>
 
+              {/* Language toggle (only shown if bilingual) */}
+              {articleHasFa && articleHasEn && (
+                <div className="inline-flex rounded-full border border-port-border bg-port-surface p-0.5 mb-5 gap-0.5">
+                  {(['en', 'fa'] as const).map((l) => (
+                    <button
+                      key={l}
+                      type="button"
+                      onClick={() => setLang(l)}
+                      className={`px-4 py-1 rounded-full text-[12px] font-semibold tracking-wide transition-all ${
+                        activeLang === l
+                          ? 'bg-port-accent text-port-bg'
+                          : 'text-port-soft hover:text-port-ink'
+                      }`}
+                    >
+                      {l === 'en' ? 'EN' : 'FA — فارسی'}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* Title */}
-              <h1 className="font-serif text-[clamp(1.75rem,5vw,3rem)] leading-tight tracking-tight text-port-ink mb-5">
-                {article.title}
+              <h1
+                dir={titleDisplay.dir}
+                className={`font-serif text-[clamp(1.75rem,5vw,3rem)] leading-tight tracking-tight text-port-ink mb-5 ${titleDisplay.dir === 'rtl' ? 'text-right' : ''}`}
+              >
+                {titleDisplay.text}
               </h1>
 
               {/* Excerpt */}
-              <p className="text-port-soft text-base sm:text-lg leading-relaxed mb-8">
-                {article.excerpt}
+              <p
+                dir={excerptDisplay.dir}
+                className={`text-port-soft text-base sm:text-lg leading-relaxed mb-8 ${excerptDisplay.dir === 'rtl' ? 'text-right' : ''}`}
+              >
+                {excerptDisplay.text}
               </p>
 
               {/* Meta row */}
@@ -153,7 +188,11 @@ export default function NewsArticlePage() {
           className="max-w-3xl mx-auto px-6 py-10 space-y-5"
         >
           {paragraphs.map((para, i) => (
-            <p key={i} className="text-[15px] text-port-soft leading-[1.9] tracking-[0.01em]">
+            <p
+              key={i}
+              dir={contentDisplay.dir}
+              className={`text-[15px] text-port-soft leading-[1.9] tracking-[0.01em] ${contentDisplay.dir === 'rtl' ? 'text-right' : ''}`}
+            >
               {para}
             </p>
           ))}

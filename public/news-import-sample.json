@@ -1,0 +1,89 @@
+{
+  "_format": "Tohid Dayhami Business Solutions Center — News Import v1.0",
+  "_instructions": {
+    "OVERVIEW": "Fill the 'articles' array below. Each object is one news article. Give this file to any AI and ask it to fill news articles following this exact format.",
+    "title": "English headline. Leave empty string if article is Persian-only.",
+    "titleFa": "Persian headline (عنوان فارسی). Leave empty string if English-only.",
+    "excerpt": "1-2 sentence English summary shown on the news card. Leave empty if Persian-only.",
+    "excerptFa": "1-2 جمله خلاصه فارسی که روی کارت خبر نشان داده می‌شود. اگر فقط انگلیسی است خالی بگذارید.",
+    "content": "Full English article body. Use \\n\\n (two backslash-n) to separate paragraphs. Leave empty if Persian-only.",
+    "contentFa": "متن کامل مقاله به فارسی. برای جداکردن پاراگراف‌ها از \\n\\n استفاده کنید. اگر فقط انگلیسی است خالی بگذارید.",
+    "category": "MUST be exactly one of the values listed in _categories below.",
+    "imageUrl": "Full https:// URL to a cover image, or empty string to use auto gradient.",
+    "publishedAt": "Date in YYYY-MM-DD format, e.g. 2024-06-15",
+    "author": "Author full name, e.g. Tohid Dayhami",
+    "published": "true = live on site now  |  false = save as draft, hidden from public",
+    "featured": "true = shown in the large hero spotlight on /news page. Set true for only ONE article.",
+    "tags": "Comma-separated keywords. Used for SEO and related articles. e.g. trade, iran, export, saffron"
+  },
+  "_categories": [
+    "Trade & Commerce",
+    "Economy & Finance",
+    "Policy & Regulation",
+    "Market Trends",
+    "Company News",
+    "Logistics & Supply Chain",
+    "Technology & Innovation",
+    "General"
+  ],
+  "_rules": [
+    "Do NOT change field names or the JSON structure.",
+    "Do NOT add an 'id' field — it is generated automatically on import.",
+    "Bilingual: fill BOTH title + titleFa, excerpt + excerptFa, content + contentFa.",
+    "Persian-only: fill titleFa, excerptFa, contentFa — leave title, excerpt, content as empty string.",
+    "English-only: fill title, excerpt, content — leave titleFa, excerptFa, contentFa as empty string.",
+    "Only ONE article should have featured: true. Others should be false.",
+    "All fields must be present in every article (use empty string for optional text fields).",
+    "Minimum required: at least one of (title or titleFa), at least one of (excerpt or excerptFa), at least one of (content or contentFa)."
+  ],
+  "articles": [
+    {
+      "_example": "BILINGUAL ARTICLE — both English and Persian",
+      "title": "Iran Expands Agricultural Exports to New Southeast Asian Markets",
+      "titleFa": "ایران صادرات محصولات کشاورزی را به بازارهای جدید جنوب‌شرق آسیا گسترش می‌دهد",
+      "excerpt": "Iranian agricultural exporters are targeting five new markets in Southeast Asia, with saffron and pistachios leading the expansion drive worth over $400 million.",
+      "excerptFa": "صادرکنندگان کشاورزی ایران پنج بازار جدید در جنوب‌شرق آسیا را هدف قرار داده‌اند و زعفران و پسته با ارزشی بیش از ۴۰۰ میلیون دلار پیشتاز این گسترش هستند.",
+      "content": "Iranian agricultural exporters are targeting five new markets in Southeast Asia as part of a broader strategy to diversify export destinations beyond traditional partners.\n\nThe initiative, backed by the Ministry of Agriculture and the Iran Trade Promotion Organization, focuses on premium products including saffron, pistachios, and dried fruits — commodities where Iran holds a dominant global market share.\n\nIndustry analysts project the new corridors could generate over $400 million in annual export revenue within three years, supported by newly signed preferential trade arrangements.\n\nSmall and medium-sized enterprises account for the majority of participating exporters, reflecting the broad-based nature of Iran's agricultural export sector.",
+      "contentFa": "صادرکنندگان کشاورزی ایران پنج بازار جدید در جنوب‌شرق آسیا را به عنوان بخشی از استراتژی گسترده‌تر برای تنوع‌بخشی به مقاصد صادراتی فراتر از شرکای سنتی هدف قرار داده‌اند.\n\nاین ابتکار که با حمایت وزارت کشاورزی و سازمان توسعه تجارت ایران انجام می‌شود، بر محصولات برتر از جمله زعفران، پسته و میوه‌های خشک تمرکز دارد — کالاهایی که ایران در آن‌ها سهم بازار جهانی غالب دارد.\n\nتحلیلگران صنعت پیش‌بینی می‌کنند که کریدورهای جدید بتوانند در عرض سه سال بیش از ۴۰۰ میلیون دلار درآمد صادراتی سالانه ایجاد کنند.\n\nشرکت‌های کوچک و متوسط اکثر صادرکنندگان شرکت‌کننده را تشکیل می‌دهند که نشان‌دهنده ماهیت گسترده بخش صادرات کشاورزی ایران است.",
+      "category": "Trade & Commerce",
+      "imageUrl": "",
+      "publishedAt": "2024-06-15",
+      "author": "Tohid Dayhami",
+      "published": true,
+      "featured": true,
+      "tags": "agriculture, saffron, pistachio, southeast asia, export"
+    },
+    {
+      "_example": "PERSIAN-ONLY ARTICLE — only Farsi content",
+      "title": "",
+      "titleFa": "ثبات نرخ‌های حمل‌ونقل کانتینری پس از ۱۸ ماه نوسان",
+      "excerpt": "",
+      "excerptFa": "نرخ‌های حمل‌ونقل کانتینری پس از ۱۸ ماه نوسانات بی‌سابقه به سطوح پیش از بحران بازگشته‌اند و به صادرکنندگان و واردکنندگان سراسر جهان آرامش می‌بخشند.",
+      "content": "",
+      "contentFa": "پس از ۱۸ ماه نوسانات بی‌سابقه، نرخ‌های حمل‌ونقل کانتینری تثبیت شده‌اند و آرامش مورد نیاز را برای صادرکنندگان و واردکنندگان سراسر جهان به ارمغان آورده‌اند.\n\nاین عادی‌سازی به دنبال افزایش قابل توجه ظرفیت حمل‌ونقل است؛ زیرا شرکت‌های حمل‌ونقل اصلی کشتی‌های جدیدی را سفارش دادند و عملیات بندری را بهینه‌سازی کردند.\n\nبرای صادرکنندگان ایرانی، این پیشرفت به‌ویژه خوشایند است. هزینه‌های حمل‌ونقل پایین‌تر مستقیماً رقابت‌پذیری در بازارهای هدف را بهبود می‌بخشد.\n\nکارشناسان لجستیک توصیه می‌کنند کسب‌وکارها از این دوره برای انعقاد قراردادهای حمل‌ونقل بلندمدت مطلوب استفاده کنند.",
+      "category": "Logistics & Supply Chain",
+      "imageUrl": "",
+      "publishedAt": "2024-06-12",
+      "author": "Tohid Dayhami",
+      "published": true,
+      "featured": false,
+      "tags": "shipping, freight, logistics, container"
+    },
+    {
+      "_example": "ENGLISH-ONLY ARTICLE — only English content",
+      "title": "New Digital Platform Cuts Export Documentation Time by 90%",
+      "titleFa": "",
+      "excerpt": "A next-generation export documentation platform has launched, reducing paperwork processing time from 5 business days to under 4 hours for registered exporters.",
+      "excerptFa": "",
+      "content": "A next-generation digital platform for export documentation has officially launched, promising to transform the administrative burden facing Iranian exporters.\n\nThe system integrates with customs authorities, chambers of commerce, and banking institutions to provide a seamless single-window experience. Certificate of origin, phytosanitary certificates, and commercial invoices can all be processed through one portal.\n\nEarly adopters report significant cost savings. One major food exporter estimated annual savings of $120,000 in administrative costs alone.\n\nThe platform is currently free for registered exporters during its launch phase, with premium features planned for later in the year.",
+      "contentFa": "",
+      "category": "Technology & Innovation",
+      "imageUrl": "",
+      "publishedAt": "2024-06-08",
+      "author": "Tohid Dayhami",
+      "published": false,
+      "featured": false,
+      "tags": "technology, digital, documentation, customs, export"
+    }
+  ]
+}

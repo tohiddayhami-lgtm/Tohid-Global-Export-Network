@@ -756,11 +756,18 @@ export default function AdminPanel() {
 
               <div className="grid sm:grid-cols-2 gap-3">
                 <label className="block text-xs sm:col-span-2">
-                  <span className="text-ink-soft">Title *</span>
+                  <span className="text-ink-soft">Title (English)</span>
                   <input className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
                     value={newsDraft.title}
                     onChange={(e) => setNewsDraft((d) => d && ({ ...d, title: e.target.value }))}
-                    placeholder="Article headline..." />
+                    placeholder="English headline..." />
+                </label>
+                <label className="block text-xs">
+                  <span className="text-ink-soft">عنوان — Title (Persian)</span>
+                  <input className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm text-right" dir="rtl"
+                    value={newsDraft.titleFa ?? ''}
+                    onChange={(e) => setNewsDraft((d) => d && ({ ...d, titleFa: e.target.value || undefined }))}
+                    placeholder="عنوان فارسی..." />
                 </label>
                 <label className="block text-xs">
                   <span className="text-ink-soft">Category</span>
@@ -790,18 +797,32 @@ export default function AdminPanel() {
                     placeholder="https://..." />
                 </label>
                 <label className="block text-xs sm:col-span-2">
-                  <span className="text-ink-soft">Excerpt (1–2 sentences shown in card) *</span>
+                  <span className="text-ink-soft">Excerpt — English (shown on card)</span>
                   <textarea rows={2} className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm resize-y"
                     value={newsDraft.excerpt}
                     onChange={(e) => setNewsDraft((d) => d && ({ ...d, excerpt: e.target.value }))}
-                    placeholder="Short summary of the article..." />
+                    placeholder="Short English summary..." />
                 </label>
                 <label className="block text-xs sm:col-span-2">
-                  <span className="text-ink-soft">Full Content *</span>
-                  <textarea rows={8} className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm resize-y font-mono text-xs"
+                  <span className="text-ink-soft">خلاصه — Excerpt Persian</span>
+                  <textarea rows={2} className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm resize-y text-right" dir="rtl"
+                    value={newsDraft.excerptFa ?? ''}
+                    onChange={(e) => setNewsDraft((d) => d && ({ ...d, excerptFa: e.target.value || undefined }))}
+                    placeholder="خلاصه کوتاه فارسی..." />
+                </label>
+                <label className="block text-xs sm:col-span-2">
+                  <span className="text-ink-soft">Full Content — English</span>
+                  <textarea rows={6} className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm resize-y font-mono text-xs"
                     value={newsDraft.content}
                     onChange={(e) => setNewsDraft((d) => d && ({ ...d, content: e.target.value }))}
-                    placeholder="Full article body. Use blank lines to separate paragraphs." />
+                    placeholder="Full English article. Use blank lines to separate paragraphs." />
+                </label>
+                <label className="block text-xs sm:col-span-2">
+                  <span className="text-ink-soft">متن کامل — Full Content Persian</span>
+                  <textarea rows={6} className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm resize-y font-mono text-xs text-right" dir="rtl"
+                    value={newsDraft.contentFa ?? ''}
+                    onChange={(e) => setNewsDraft((d) => d && ({ ...d, contentFa: e.target.value || undefined }))}
+                    placeholder="متن کامل مقاله به فارسی. برای جداکردن پاراگراف‌ها یک خط خالی بگذارید." />
                 </label>
                 <label className="block text-xs sm:col-span-2">
                   <span className="text-ink-soft">Tags (comma separated)</span>
@@ -851,18 +872,74 @@ export default function AdminPanel() {
               </div>
             </section>
           ) : (
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-medium text-base">
                 {articles.length} article{articles.length !== 1 ? 's' : ''} total
                 <span className="ml-2 text-xs text-ink-soft font-normal">
                   ({articles.filter((a) => a.published).length} published)
                 </span>
               </h2>
-              <button type="button" onClick={() => setNewsDraft(emptyDraft())}
-                className="inline-flex items-center gap-1.5 rounded-full bg-ink text-white px-4 py-1.5 text-sm font-medium hover:opacity-90">
-                <Plus className="w-3.5 h-3.5" />
-                New Article
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Download sample */}
+                <a href="/news-import-sample.json" download="news-import-sample.json"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-hover"
+                  title="Download sample JSON to fill with AI">
+                  <Download className="w-3.5 h-3.5" />
+                  Sample JSON
+                </a>
+                {/* Import JSON */}
+                <label className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium cursor-pointer hover:bg-hover" title="Import articles from JSON">
+                  <Upload className="w-3.5 h-3.5" />
+                  Import JSON
+                  <input type="file" accept="application/json,.json" className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        try {
+                          const raw = JSON.parse(String(reader.result)) as Record<string, unknown>;
+                          const arr = Array.isArray(raw) ? raw : Array.isArray(raw?.articles) ? (raw.articles as unknown[]) : null;
+                          if (!arr) { window.alert('Invalid format. Expected { "articles": [...] }'); return; }
+                          let added = 0;
+                          for (const item of arr) {
+                            if (!item || typeof item !== 'object') continue;
+                            const a = item as Record<string, unknown>;
+                            if (String(a._example ?? '').length > 0) continue; // skip sample rows
+                            const title = String(a.title ?? '').trim();
+                            const titleFa = String(a.titleFa ?? '').trim();
+                            if (!title && !titleFa) continue;
+                            addArticle({
+                              title,
+                              titleFa: titleFa || undefined,
+                              excerpt: String(a.excerpt ?? ''),
+                              excerptFa: String(a.excerptFa ?? '') || undefined,
+                              content: String(a.content ?? ''),
+                              contentFa: String(a.contentFa ?? '') || undefined,
+                              category: String(a.category ?? 'General'),
+                              imageUrl: String(a.imageUrl ?? ''),
+                              publishedAt: String(a.publishedAt ?? new Date().toISOString().slice(0, 10)),
+                              author: String(a.author ?? 'Tohid Dayhami'),
+                              published: Boolean(a.published ?? false),
+                              featured: Boolean(a.featured ?? false),
+                              tags: String(a.tags ?? ''),
+                            });
+                            added++;
+                          }
+                          window.alert(`${added} article${added !== 1 ? 's' : ''} imported.`);
+                        } catch { window.alert('Could not parse JSON. Check the file format.'); }
+                      };
+                      reader.readAsText(f);
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+                <button type="button" onClick={() => setNewsDraft(emptyDraft())}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-ink text-white px-4 py-1.5 text-sm font-medium hover:opacity-90">
+                  <Plus className="w-3.5 h-3.5" />
+                  New Article
+                </button>
+              </div>
             </div>
           )}
 

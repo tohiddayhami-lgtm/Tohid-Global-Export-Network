@@ -4,8 +4,11 @@ import { firebaseApp } from './firebase.ts';
 export interface NewsArticle {
   id: string;
   title: string;
+  titleFa?: string;
   excerpt: string;
+  excerptFa?: string;
   content: string;
+  contentFa?: string;
   category: string;
   imageUrl: string;
   publishedAt: string;
@@ -13,6 +16,29 @@ export interface NewsArticle {
   published: boolean;
   featured: boolean;
   tags: string;
+}
+
+/** Returns the best available title/excerpt/content, preferring the requested lang */
+export function pickLang(
+  en: string | undefined,
+  fa: string | undefined,
+  lang: 'en' | 'fa',
+): { text: string; dir: 'ltr' | 'rtl' } {
+  if (lang === 'fa') {
+    if (fa?.trim()) return { text: fa, dir: 'rtl' };
+    if (en?.trim()) return { text: en, dir: 'ltr' };
+  } else {
+    if (en?.trim()) return { text: en, dir: 'ltr' };
+    if (fa?.trim()) return { text: fa, dir: 'rtl' };
+  }
+  return { text: '', dir: 'ltr' };
+}
+
+export function hasFa(a: NewsArticle) {
+  return !!(a.titleFa?.trim() || a.excerptFa?.trim() || a.contentFa?.trim());
+}
+export function hasEn(a: NewsArticle) {
+  return !!(a.title?.trim() || a.excerpt?.trim() || a.content?.trim());
 }
 
 export const NEWS_CATEGORIES = [
