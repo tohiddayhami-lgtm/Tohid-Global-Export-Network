@@ -19,19 +19,7 @@ import { firebaseApp } from './firebase.ts';
 
 const STORAGE_KEY = 'gen_export_network_v1';
 const ROOT_UI_STORAGE_KEY = 'gen_export_network_ui_v1';
-const LOCAL_ADMIN_SESSION_KEY = 'gen_local_admin_v1';
 export const DEFAULT_FAVICON_HREF = '/favicon.svg?v=container-1';
-
-const LOCAL_ADMIN_USER = 'master';
-const LOCAL_ADMIN_PASS = 'TohidAdmin2025';
-
-function loadLocalAdminSession(): boolean {
-  try {
-    return localStorage.getItem(LOCAL_ADMIN_SESSION_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
 
 /** Default center-node title + hero texts (overridden from admin / Firestore). */
 export const DEFAULT_ROOT_NODE_LINES: RootNodeLines = {
@@ -231,10 +219,9 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
   const flushPendingCloudSaveRef = useRef<() => void>(() => {});
 
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
-  const [localAdmin, setLocalAdmin] = useState(loadLocalAdminSession);
   const [remoteReady, setRemoteReady] = useState(() => !firebaseApp);
 
-  const adminOk = !!firebaseUser || localAdmin;
+  const adminOk = !!firebaseUser;
 
   const flushNetworkToCloudSoon = useCallback(() => {
     queueMicrotask(() => {
@@ -495,13 +482,12 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
   const exportData = useMemo(() => hydrateNetwork(networkJson), [networkJson]);
 
   const login = useCallback(async (user: string, pass: string): Promise<AdminLoginResult> => {
-    if (user.trim() === LOCAL_ADMIN_USER && pass === LOCAL_ADMIN_PASS) {
-      setLocalAdmin(true);
-      try { localStorage.setItem(LOCAL_ADMIN_SESSION_KEY, '1'); } catch { /* quota */ }
-      return { ok: true };
-    }
     if (!firebaseApp) {
-      return { ok: false, message: 'Wrong username or password.' };
+      return {
+        ok: false,
+        message:
+          'Firebase is not configured. Add VITE_FIREBASE_* to `.env` and run `npm run build`, or deploy `firebase-config.json` next to `index.html` (see `public/firebase-config.json.example`).',
+      };
     }
     try {
       const { getAuth, signInWithEmailAndPassword } = await import('firebase/auth');
@@ -516,8 +502,6 @@ export function ExportDataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
-    setLocalAdmin(false);
-    try { localStorage.removeItem(LOCAL_ADMIN_SESSION_KEY); } catch { /* ignore */ }
     if (firebaseApp) {
       void import('firebase/auth').then(({ getAuth, signOut }) => {
         void signOut(getAuth(firebaseApp!));

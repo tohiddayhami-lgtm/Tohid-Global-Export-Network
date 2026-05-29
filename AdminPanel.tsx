@@ -403,22 +403,25 @@ export default function AdminPanel() {
                 onChange={(e) => setUser(e.target.value)}
                 autoComplete="username"
                 type="text"
+                disabled={syncMode === 'unconfigured'}
               />
             </div>
             <div>
               <label className="block text-xs font-medium text-ink-soft mb-1">{t('password')}</label>
               <input
                 type="password"
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm disabled:opacity-50"
                 value={pass}
                 onChange={(e) => setPass(e.target.value)}
                 autoComplete="current-password"
+                disabled={syncMode === 'unconfigured'}
               />
             </div>
             {err && <p className="text-sm text-red-600">{err}</p>}
             <button
               type="submit"
-              className="w-full rounded-full bg-ink text-white py-2.5 text-sm font-medium hover:opacity-90"
+              disabled={syncMode === 'unconfigured'}
+              className="w-full rounded-full bg-ink text-white py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-50 disabled:pointer-events-none"
             >
               {t('signIn')}
             </button>
