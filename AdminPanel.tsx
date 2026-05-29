@@ -1700,6 +1700,17 @@ export default function AdminPanel() {
                     />
                   </label>
                   <label className="text-xs sm:col-span-2">
+                    <span className="text-ink-soft">Description</span>
+                    <span className="ml-1.5 text-[10px] text-ink-faint">(shown on cards & search results)</span>
+                    <textarea
+                      className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm resize-none"
+                      rows={2}
+                      placeholder="Short description of what this trade booth covers…"
+                      value={activeCat.description ?? ''}
+                      onChange={(e) => updateCategory(selCat, { description: e.target.value || undefined })}
+                    />
+                  </label>
+                  <label className="text-xs sm:col-span-2">
                     <span className="text-ink-soft">{t('iconLucide')}</span>
                     <select
                       className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"

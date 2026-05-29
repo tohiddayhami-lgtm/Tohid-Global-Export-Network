@@ -216,7 +216,7 @@ export default function App() {
   // ── Search ───────────────────────────────────────────────────────────────────
   type SearchResult =
     | { kind: 'country'; countryId: string; label: string; flag: string }
-    | { kind: 'category'; countryId: string; catId: string; countryLabel: string; catLabel: string }
+    | { kind: 'category'; countryId: string; catId: string; countryLabel: string; catLabel: string; description?: string }
     | { kind: 'company'; name: string; tag: string; url: string; countryId: string; catId: string; countryLabel: string; catLabel: string };
 
   const searchResults = useMemo<SearchResult[]>(() => {
@@ -230,8 +230,8 @@ export default function App() {
       }
       for (const [catId, cat] of Object.entries(country.categories) as [string, Category][]) {
         if (cat.hidden) continue;
-        if (cat.label.toLowerCase().includes(q)) {
-          results.push({ kind: 'category', countryId: cid, catId, countryLabel: country.label, catLabel: cat.label });
+        if (cat.label.toLowerCase().includes(q) || (cat.description ?? '').toLowerCase().includes(q)) {
+          results.push({ kind: 'category', countryId: cid, catId, countryLabel: country.label, catLabel: cat.label, description: cat.description });
         }
         for (const co of cat.companies) {
           if (co.name.toLowerCase().includes(q) || co.tag.toLowerCase().includes(q)) {
@@ -680,7 +680,10 @@ export default function App() {
                       <h3 className="font-medium text-[13px] text-port-ink leading-snug mb-1.5 group-hover:text-port-accent transition-colors">
                         {cat.label}
                       </h3>
-                      <p className="text-[11px] text-port-soft">{cat.companies.length} vendors</p>
+                      {cat.description ? (
+                        <p className="text-[11px] text-port-soft leading-relaxed mb-1.5 line-clamp-2">{cat.description}</p>
+                      ) : null}
+                      <p className="text-[11px] text-port-faint mt-auto">{cat.companies.length} vendors</p>
 
                       {/* Hover line */}
                       <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-port-accent/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -709,7 +712,12 @@ export default function App() {
                   {exportData[selectedCountry].categories[selectedCategory].label}
                 </h2>
               </div>
-              <p className="text-port-soft text-sm mb-10 ps-[52px]">
+              {exportData[selectedCountry].categories[selectedCategory].description ? (
+                <p className="text-port-soft text-sm mb-2 ps-[52px] leading-relaxed">
+                  {exportData[selectedCountry].categories[selectedCategory].description}
+                </p>
+              ) : null}
+              <p className="text-port-faint text-xs mb-10 ps-[52px]">
                 {exportData[selectedCountry].label} · {companies.length} vendors
               </p>
 
@@ -941,7 +949,11 @@ export default function App() {
                                 </div>
                                 <div className="min-w-0">
                                   <p className="text-sm font-medium text-port-ink truncate">{r.catLabel}</p>
-                                  <p className="text-[11px] text-port-faint truncate">{r.countryLabel} · Trade Booth</p>
+                                  {r.description ? (
+                                    <p className="text-[11px] text-port-soft truncate">{r.description}</p>
+                                  ) : (
+                                    <p className="text-[11px] text-port-faint truncate">{r.countryLabel} · Trade Booth</p>
+                                  )}
                                 </div>
                               </>
                             )}
