@@ -6,6 +6,7 @@ import { ExportDataProvider } from './networkContext.tsx';
 import { LocaleProvider } from './i18n/LocaleContext.tsx';
 import { PageContentProvider } from './pageContentContext.tsx';
 import { NewsProvider } from './newsContext.tsx';
+import { ContactSubmissionsProvider } from './contactSubmissionsContext.tsx';
 
 const AdminPanel    = lazy(() => import('./AdminPanel.tsx'));
 const AboutPage     = lazy(() => import('./AboutPage.tsx'));
@@ -24,6 +25,7 @@ createRoot(document.getElementById('root')!).render(
         <ExportDataProvider>
           <PageContentProvider>
             <NewsProvider>
+            <ContactSubmissionsProvider>
               <Routes>
                 <Route path="/admin"         element={<Suspense fallback={null}><AdminPanel /></Suspense>} />
                 <Route path="/about"         element={<Suspense fallback={null}><AboutPage /></Suspense>} />
@@ -33,6 +35,7 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="/news/:id"      element={<Suspense fallback={null}><NewsArticlePage /></Suspense>} />
                 <Route path="/*"             element={<App />} />
               </Routes>
+            </ContactSubmissionsProvider>
             </NewsProvider>
           </PageContentProvider>
         </ExportDataProvider>
