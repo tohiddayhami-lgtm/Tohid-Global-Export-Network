@@ -419,7 +419,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
-            className="w-9 h-9 rounded-full hidden sm:flex items-center justify-center hover:bg-port-surface border border-transparent hover:border-port-border transition-all text-port-soft hover:text-port-ink"
+            className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-port-surface border border-transparent hover:border-port-border transition-all text-port-soft hover:text-port-ink"
             aria-label={t('ariaSearch')}
           >
             <Search className="w-4 h-4" strokeWidth={1.5} />
