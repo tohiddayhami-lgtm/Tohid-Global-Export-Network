@@ -20,7 +20,8 @@ import {
   Share2,
 } from 'lucide-react';
 import type { CategoryJson, CompanyJson, CountryJson } from './networkTypes.ts';
-import { ICON_KEYS } from './iconRegistry.ts';
+import { ICON_KEYS, getIconByKey } from './iconRegistry.ts';
+import { CATEGORY_PRESETS, PRESET_GROUPS } from './categoryPresets.ts';
 import {
   defaultNetworkClone,
   DEFAULT_FAVICON_HREF,
@@ -117,6 +118,8 @@ export default function AdminPanel() {
   const [err, setErr] = useState('');
   const [activeTab, setActiveTab] = useState<AdminTab>('network');
   const [sharedCatPanel, setSharedCatPanel] = useState<{ catId: string; idx: number } | null>(null);
+  const [showPresetPicker, setShowPresetPicker] = useState(false);
+  const [presetSearch, setPresetSearch] = useState('');
 
   // Page content draft state
   const [pageDraft, setPageDraft] = useState<PageContent>(() => ({ ...pageContent }));
@@ -282,6 +285,28 @@ export default function AdminPanel() {
       };
     });
     setSelCat(slug);
+  };
+
+  const addCategoryFromPreset = (label: string, iconKey: string) => {
+    if (!selCountry || !country) return;
+    const slug = uniqueSlug(label, Object.keys(country.categories), 'cat');
+    setNetworkJson((p) => {
+      const c = p[selCountry];
+      if (!c) return p;
+      return {
+        ...p,
+        [selCountry]: {
+          ...c,
+          categories: {
+            ...c.categories,
+            [slug]: { label, iconKey, companies: [emptyCompany()], hidden: false },
+          },
+        },
+      };
+    });
+    setSelCat(slug);
+    setShowPresetPicker(false);
+    setPresetSearch('');
   };
 
   const removeCategory = (catId: string) => {
@@ -1077,10 +1102,107 @@ export default function AdminPanel() {
             <section className="rounded-xl border border-border bg-white p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="font-medium">{t('categoriesSection')}</h2>
-                <button type="button" onClick={addCategory} className="text-sm inline-flex items-center gap-1 text-ink-soft hover:text-ink">
-                  <Plus className="w-4 h-4" /> {t('add')}
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => { setShowPresetPicker((v) => !v); setPresetSearch(''); }}
+                    className={`text-sm inline-flex items-center gap-1 rounded-full px-3 py-1 border transition-colors ${
+                      showPresetPicker
+                        ? 'bg-ink text-white border-ink'
+                        : 'border-border text-ink-soft hover:text-ink hover:bg-hover'
+                    }`}
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Quick Add
+                  </button>
+                  <button
+                    type="button"
+                    onClick={addCategory}
+                    className="text-sm inline-flex items-center gap-1 text-ink-soft hover:text-ink"
+                    title="Add with custom name"
+                  >
+                    Custom
+                  </button>
+                </div>
               </div>
+
+              {/* Preset Picker Panel */}
+              {showPresetPicker && (
+                <div className="rounded-xl border border-border bg-hover/50 p-3 space-y-3">
+                  {/* Search */}
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-soft pointer-events-none" />
+                    <input
+                      autoFocus
+                      placeholder="Search categories..."
+                      value={presetSearch}
+                      onChange={(e) => setPresetSearch(e.target.value)}
+                      className="w-full rounded-lg border border-border bg-white pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:border-ink"
+                    />
+                  </div>
+
+                  {/* Category chips grouped */}
+                  <div className="max-h-64 overflow-y-auto space-y-3 pr-1">
+                    {(() => {
+                      const q = presetSearch.toLowerCase();
+                      const filtered = CATEGORY_PRESETS.filter((p) =>
+                        !q || p.label.toLowerCase().includes(q) || p.group.toLowerCase().includes(q)
+                      );
+                      if (filtered.length === 0) {
+                        return (
+                          <p className="text-xs text-ink-faint text-center py-4">
+                            No match. Use "Custom" to add a new name.
+                          </p>
+                        );
+                      }
+                      const groups = q
+                        ? ['Results']
+                        : PRESET_GROUPS;
+                      return groups.map((group) => {
+                        const items = q
+                          ? filtered
+                          : filtered.filter((p) => p.group === group);
+                        if (!items.length) return null;
+                        return (
+                          <div key={group}>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint mb-1.5 px-0.5">
+                              {group}
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {items.map((preset) => {
+                                const Icon = getIconByKey(preset.iconKey);
+                                const alreadyAdded = country
+                                  ? Object.values(country.categories as Record<string, CategoryJson>).some(
+                                      (cat) => cat.label.toLowerCase() === preset.label.toLowerCase()
+                                    )
+                                  : false;
+                                return (
+                                  <button
+                                    key={preset.label}
+                                    type="button"
+                                    disabled={alreadyAdded}
+                                    onClick={() => addCategoryFromPreset(preset.label, preset.iconKey)}
+                                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors ${
+                                      alreadyAdded
+                                        ? 'border-border text-ink-faint bg-hover cursor-not-allowed opacity-50'
+                                        : 'border-border bg-white text-ink hover:border-ink hover:bg-ink hover:text-white'
+                                    }`}
+                                    title={alreadyAdded ? 'Already added' : `Add "${preset.label}"`}
+                                  >
+                                    <Icon className="w-3 h-3 shrink-0" strokeWidth={1.5} />
+                                    {preset.label}
+                                    {alreadyAdded && <span className="ml-0.5 opacity-60">✓</span>}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
                 {catKeys.map((cid, index) => (
                   <div
