@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
-import { Mail, Phone, MapPin, Clock, Send, CheckCircle } from 'lucide-react';
+import { Mail, Phone, MapPin, Clock, Send, CheckCircle, MessageCircle } from 'lucide-react';
 import { usePageContent } from './pageContentContext.tsx';
 import { useContactSubmissions } from './contactSubmissionsContext.tsx';
 import PageHeader from './PageHeader.tsx';
@@ -123,11 +123,12 @@ export default function ContactPage() {
                     setSubmitting(true);
                     try {
                       await addSubmission({
-                        name:    String(data.get('name')    ?? '').trim(),
-                        email:   String(data.get('email')   ?? '').trim(),
-                        phone:   String(data.get('phone')   ?? '').trim(),
-                        subject: String(data.get('subject') ?? '').trim(),
-                        message: String(data.get('message') ?? '').trim(),
+                        name:     String(data.get('name')     ?? '').trim(),
+                        email:    String(data.get('email')    ?? '').trim(),
+                        phone:    String(data.get('phone')    ?? '').trim(),
+                        whatsapp: String(data.get('whatsapp') ?? '').trim(),
+                        subject:  String(data.get('subject')  ?? '').trim(),
+                        message:  String(data.get('message')  ?? '').trim(),
                       });
                       form.reset();
                       setSubmitted(true);
@@ -159,16 +160,31 @@ export default function ContactPage() {
                     </label>
                   </div>
 
-                  {/* Phone */}
-                  <label className="block text-xs">
-                    <span className="text-port-soft mb-1 block">Phone Number</span>
-                    <input
-                      name="phone"
-                      type="tel"
-                      placeholder="+1 234 567 8900"
-                      className="w-full rounded-lg border border-port-border bg-port-bg px-3 py-2.5 text-sm text-port-ink placeholder:text-port-faint focus:outline-none focus:border-port-accent/50 transition-colors"
-                    />
-                  </label>
+                  {/* Phone + WhatsApp */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="col-span-2 sm:col-span-1 block text-xs">
+                      <span className="text-port-soft mb-1 flex items-center gap-1">
+                        <Phone className="w-3 h-3" /> Phone Number
+                      </span>
+                      <input
+                        name="phone"
+                        type="tel"
+                        placeholder="+98 912 345 6789"
+                        className="w-full rounded-lg border border-port-border bg-port-bg px-3 py-2.5 text-sm text-port-ink placeholder:text-port-faint focus:outline-none focus:border-port-accent/50 transition-colors"
+                      />
+                    </label>
+                    <label className="col-span-2 sm:col-span-1 block text-xs">
+                      <span className="text-port-soft mb-1 flex items-center gap-1">
+                        <MessageCircle className="w-3 h-3 text-green-400" /> WhatsApp Number
+                      </span>
+                      <input
+                        name="whatsapp"
+                        type="tel"
+                        placeholder="+98 912 345 6789"
+                        className="w-full rounded-lg border border-port-border bg-port-bg px-3 py-2.5 text-sm text-port-ink placeholder:text-port-faint focus:outline-none focus:border-port-accent/50 transition-colors"
+                      />
+                    </label>
+                  </div>
 
                   {/* Subject */}
                   <label className="block text-xs">

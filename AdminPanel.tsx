@@ -135,13 +135,14 @@ export default function AdminPanel() {
         'Name': s.name,
         'Email': s.email,
         'Phone': s.phone,
+        'WhatsApp': s.whatsapp,
         'Subject': s.subject,
         'Message': s.message,
         'Status': s.read ? 'Read' : 'Unread',
       }));
       const ws = XLSX.utils.json_to_sheet(rows);
       ws['!cols'] = [
-        { wch: 20 }, { wch: 22 }, { wch: 28 }, { wch: 18 },
+        { wch: 20 }, { wch: 22 }, { wch: 28 }, { wch: 18 }, { wch: 18 },
         { wch: 28 }, { wch: 50 }, { wch: 10 },
       ];
       const wb = XLSX.utils.book_new();
@@ -1332,6 +1333,11 @@ export default function AdminPanel() {
                                 <Phone className="w-3 h-3" /> {s.phone}
                               </span>
                             )}
+                            {s.whatsapp && (
+                              <span className="inline-flex items-center gap-1 text-[12px] text-green-600 font-medium">
+                                <MessageSquare className="w-3 h-3" /> {s.whatsapp}
+                              </span>
+                            )}
                           </div>
                           {s.subject && (
                             <p className="text-[12px] text-ink-soft mt-0.5 truncate">
@@ -1363,6 +1369,17 @@ export default function AdminPanel() {
                               >
                                 <Phone className="w-3 h-3" />
                                 Call
+                              </a>
+                            )}
+                            {s.whatsapp && (
+                              <a
+                                href={`https://wa.me/${s.whatsapp.replace(/[\s+\-()]/g, '')}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 rounded-full border border-green-200 text-green-700 bg-green-50 px-3 py-1.5 text-xs font-medium hover:bg-green-100"
+                              >
+                                <MessageSquare className="w-3 h-3" />
+                                WhatsApp
                               </a>
                             )}
                             <button

@@ -14,6 +14,7 @@ export interface ContactSubmission {
   name: string;
   email: string;
   phone: string;
+  whatsapp: string;
   subject: string;
   message: string;
   submittedAt: string; // ISO date string
@@ -112,6 +113,7 @@ export function ContactSubmissionsProvider({ children }: { children: ReactNode }
             name: submission.name,
             email: submission.email,
             phone: submission.phone,
+            whatsapp: submission.whatsapp,
             subject: submission.subject,
             message: submission.message,
             submittedAt: submission.submittedAt,
