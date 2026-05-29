@@ -21,11 +21,6 @@ import {
   Star,
   Pencil,
   X,
-  Mail,
-  Phone,
-  MessageSquare,
-  CheckCheck,
-  Filter,
 } from 'lucide-react';
 import type { CategoryJson, CompanyJson, CountryJson } from './networkTypes.ts';
 import { ICON_KEYS, getIconByKey } from './iconRegistry.ts';
@@ -40,7 +35,6 @@ import {
 import { useLocale } from './i18n/LocaleContext.tsx';
 import { usePageContent, DEFAULT_PAGE_CONTENT, DEFAULT_SEO, type PageContent, type SeoContent } from './pageContentContext.tsx';
 import { useNews, NEWS_CATEGORIES, type NewsArticle } from './newsContext.tsx';
-import { useContactSubmissions, type ContactSubmission } from './contactSubmissionsContext.tsx';
 
 const MAX_FAVICON_BYTES = 256 * 1024;
 
@@ -116,7 +110,7 @@ function emptyCountry(id: string, defaultCategoryLabel: string): CountryJson {
   };
 }
 
-type AdminTab = 'network' | 'pages' | 'seo' | 'news' | 'messages';
+type AdminTab = 'network' | 'pages' | 'seo' | 'news';
 
 export default function AdminPanel() {
   const { t } = useLocale();
@@ -124,32 +118,6 @@ export default function AdminPanel() {
     useExportData();
   const { pageContent, updatePageContent } = usePageContent();
   const { articles, addArticle, updateArticle, removeArticle } = useNews();
-  const { submissions, markRead, deleteSubmission, unreadCount } = useContactSubmissions();
-  const [msgFilter, setMsgFilter] = useState<'all' | 'unread'>('all');
-  const [expandedMsg, setExpandedMsg] = useState<string | null>(null);
-
-  const exportSubmissionsExcel = () => {
-    import('xlsx').then((XLSX) => {
-      const rows = submissions.map((s) => ({
-        'Date': new Date(s.submittedAt).toLocaleString(),
-        'Name': s.name,
-        'Email': s.email,
-        'Phone': s.phone,
-        'WhatsApp': s.whatsapp,
-        'Subject': s.subject,
-        'Message': s.message,
-        'Status': s.read ? 'Read' : 'Unread',
-      }));
-      const ws = XLSX.utils.json_to_sheet(rows);
-      ws['!cols'] = [
-        { wch: 20 }, { wch: 22 }, { wch: 28 }, { wch: 18 }, { wch: 18 },
-        { wch: 28 }, { wch: 50 }, { wch: 10 },
-      ];
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Contact Messages');
-      XLSX.writeFile(wb, `contact-messages-${new Date().toISOString().slice(0, 10)}.xlsx`);
-    });
-  };
 
   // News editor state
   const emptyDraft = (): Omit<NewsArticle, 'id'> => ({
@@ -630,23 +598,6 @@ export default function AdminPanel() {
           {articles.length > 0 && (
             <span className="ml-0.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-ink text-white text-[9px] font-bold">
               {articles.length}
-            </span>
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('messages')}
-          className={`inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'messages'
-              ? 'border-ink text-ink'
-              : 'border-transparent text-ink-soft hover:text-ink'
-          }`}
-        >
-          <Mail className="w-3.5 h-3.5" />
-          Messages
-          {unreadCount > 0 && (
-            <span className="ml-0.5 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold">
-              {unreadCount}
             </span>
           )}
         </button>
@@ -1237,172 +1188,6 @@ export default function AdminPanel() {
               </button>
             </div>
           </section>
-        </div>
-      )}
-
-      {/* ── Messages Tab ──────────────────────────────────────────────── */}
-      {activeTab === 'messages' && (
-        <div className="max-w-5xl mx-auto p-4 space-y-4">
-          {/* Toolbar */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <h2 className="font-serif text-lg text-ink">Contact Messages</h2>
-              <span className="text-xs text-ink-soft">({submissions.length} total · {unreadCount} unread)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              {/* Filter */}
-              <div className="inline-flex rounded-full border border-border overflow-hidden text-xs">
-                <button
-                  type="button"
-                  onClick={() => setMsgFilter('all')}
-                  className={`px-3 py-1.5 font-medium transition-colors ${msgFilter === 'all' ? 'bg-ink text-white' : 'text-ink-soft hover:bg-hover'}`}
-                >
-                  All
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMsgFilter('unread')}
-                  className={`px-3 py-1.5 font-medium transition-colors flex items-center gap-1 ${msgFilter === 'unread' ? 'bg-ink text-white' : 'text-ink-soft hover:bg-hover'}`}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                  Unread
-                </button>
-              </div>
-              {/* Excel export */}
-              <button
-                type="button"
-                onClick={exportSubmissionsExcel}
-                disabled={submissions.length === 0}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-hover disabled:opacity-40 disabled:pointer-events-none"
-              >
-                <Download className="w-3.5 h-3.5 text-green-600" />
-                Export Excel
-              </button>
-            </div>
-          </div>
-
-          {/* Messages list */}
-          {submissions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-ink-faint gap-3">
-              <MessageSquare className="w-10 h-10 opacity-30" strokeWidth={1} />
-              <p className="text-sm">No contact messages yet.</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {submissions
-                .filter((s) => msgFilter === 'all' || !s.read)
-                .map((s) => {
-                  const isExpanded = expandedMsg === s.id;
-                  const date = new Date(s.submittedAt);
-                  return (
-                    <div
-                      key={s.id}
-                      className={`rounded-xl border bg-white overflow-hidden transition-all ${
-                        s.read ? 'border-border' : 'border-blue-200 bg-blue-50/40'
-                      }`}
-                    >
-                      {/* Row header */}
-                      <div
-                        className="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-hover/50"
-                        onClick={() => {
-                          setExpandedMsg(isExpanded ? null : s.id);
-                          if (!s.read) markRead(s.id);
-                        }}
-                      >
-                        {/* Unread dot */}
-                        <div className="mt-1.5 shrink-0">
-                          {s.read
-                            ? <CheckCheck className="w-4 h-4 text-ink-faint" strokeWidth={1.5} />
-                            : <span className="block w-2 h-2 rounded-full bg-blue-500" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-baseline justify-between gap-2 flex-wrap">
-                            <span className={`text-sm font-semibold truncate ${s.read ? 'text-ink' : 'text-blue-800'}`}>
-                              {s.name || '(No name)'}
-                            </span>
-                            <span className="text-[11px] text-ink-soft shrink-0">
-                              {date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                            <span className="inline-flex items-center gap-1 text-[12px] text-ink-soft">
-                              <Mail className="w-3 h-3" /> {s.email}
-                            </span>
-                            {s.phone && (
-                              <span className="inline-flex items-center gap-1 text-[12px] text-ink-soft">
-                                <Phone className="w-3 h-3" /> {s.phone}
-                              </span>
-                            )}
-                            {s.whatsapp && (
-                              <span className="inline-flex items-center gap-1 text-[12px] text-green-600 font-medium">
-                                <MessageSquare className="w-3 h-3" /> {s.whatsapp}
-                              </span>
-                            )}
-                          </div>
-                          {s.subject && (
-                            <p className="text-[12px] text-ink-soft mt-0.5 truncate">
-                              <span className="font-medium text-ink">Subject:</span> {s.subject}
-                            </p>
-                          )}
-                          {!isExpanded && (
-                            <p className="text-[12px] text-ink-soft mt-0.5 truncate">{s.message}</p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Expanded body */}
-                      {isExpanded && (
-                        <div className="px-4 pb-4 border-t border-border bg-white">
-                          <p className="text-sm text-ink mt-3 leading-relaxed whitespace-pre-wrap">{s.message}</p>
-                          <div className="flex items-center gap-2 mt-4">
-                            <a
-                              href={`mailto:${s.email}?subject=Re: ${encodeURIComponent(s.subject || 'Your message')}`}
-                              className="inline-flex items-center gap-1.5 rounded-full bg-ink text-white px-3 py-1.5 text-xs font-medium hover:opacity-90"
-                            >
-                              <Mail className="w-3 h-3" />
-                              Reply by Email
-                            </a>
-                            {s.phone && (
-                              <a
-                                href={`tel:${s.phone.replace(/\s/g, '')}`}
-                                className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-hover"
-                              >
-                                <Phone className="w-3 h-3" />
-                                Call
-                              </a>
-                            )}
-                            {s.whatsapp && (
-                              <a
-                                href={`https://wa.me/${s.whatsapp.replace(/[\s+\-()]/g, '')}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 rounded-full border border-green-200 text-green-700 bg-green-50 px-3 py-1.5 text-xs font-medium hover:bg-green-100"
-                              >
-                                <MessageSquare className="w-3 h-3" />
-                                WhatsApp
-                              </a>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (window.confirm('Delete this message?')) {
-                                  deleteSubmission(s.id);
-                                  setExpandedMsg(null);
-                                }
-                              }}
-                              className="inline-flex items-center gap-1.5 rounded-full border border-red-200 text-red-600 px-3 py-1.5 text-xs font-medium hover:bg-red-50 ml-auto"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                              Delete
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-            </div>
-          )}
         </div>
       )}
 
