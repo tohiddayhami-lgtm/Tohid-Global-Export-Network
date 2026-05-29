@@ -17,7 +17,7 @@ const NAV_ITEMS = [
   { label: 'Services', to: '/services' },
   { label: 'Contact Us', to: '/contact' },
 ];
-import type { Category } from './hydrateNetwork.ts';
+import type { Category, Country } from './hydrateNetwork.ts';
 import { DEFAULT_ROOT_NODE_LINES, useExportData } from './networkContext.tsx';
 import { useLocale } from './i18n/LocaleContext.tsx';
 
@@ -171,7 +171,7 @@ export default function App() {
 
   // ── Data ──────────────────────────────────────────────────────────────────
 
-  const countries = useMemo(() => Object.values(exportData), [exportData]);
+  const countries = useMemo(() => (Object.values(exportData) as Country[]).filter((c) => !c.hidden), [exportData]);
   const selectedCountryData = selectedCountry ? exportData[selectedCountry] : undefined;
 
   const categories = useMemo(() => {

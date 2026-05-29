@@ -30,6 +30,7 @@ export interface CountryJson {
   flag: string;
   anchor: { x: number; y: number };
   categories: Record<string, CategoryJson>;
+  hidden?: boolean;
 }
 
 /** Serializable map: countryId → country */

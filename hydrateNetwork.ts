@@ -17,6 +17,7 @@ export interface Country {
   flag: string;
   anchor: { x: number; y: number };
   categories: { [key: string]: Category };
+  hidden: boolean;
 }
 
 export type ExportDataMap = Record<string, Country>;
@@ -45,5 +46,6 @@ function hydrateCountry(c: CountryJson): Country {
     flag: c.flag,
     anchor: { ...c.anchor },
     categories,
+    hidden: c.hidden === true,
   };
 }

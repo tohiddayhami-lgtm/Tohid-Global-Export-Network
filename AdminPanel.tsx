@@ -208,6 +208,17 @@ export default function AdminPanel() {
     [setNetworkJson]
   );
 
+  const toggleCountryVisibility = useCallback(
+    (countryId: string) => {
+      setNetworkJson((prev) => {
+        const c = prev[countryId];
+        if (!c) return prev;
+        return { ...prev, [countryId]: { ...c, hidden: !c.hidden } };
+      });
+    },
+    [setNetworkJson]
+  );
+
   const moveCategory = useCallback(
     (catId: string, direction: -1 | 1) => {
       if (!selCountry) return;
@@ -666,44 +677,62 @@ export default function AdminPanel() {
             </button>
           </div>
           <ul className="space-y-1">
-            {countryIds.map((id, index) => (
-              <li key={id} className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelCountry(id);
-                    setSelCat('');
-                  }}
-                  className={`min-w-0 flex-1 text-start rounded-lg px-3 py-2 text-sm ${
-                    selCountry === id ? 'bg-ink text-white' : 'hover:bg-hover'
-                  }`}
-                >
-                  <span className="block truncate">{networkJson[id].label}</span>
-                </button>
-                <div className="flex shrink-0">
+            {countryIds.map((id, index) => {
+              const isHidden = !!networkJson[id].hidden;
+              return (
+                <li key={id} className="flex items-center gap-1">
                   <button
                     type="button"
-                    onClick={() => moveCountry(id, -1)}
-                    disabled={index === 0}
-                    title={t('moveUp')}
-                    aria-label={t('moveUp')}
-                    className="p-1 rounded text-ink-soft hover:text-ink hover:bg-hover disabled:opacity-30 disabled:pointer-events-none"
+                    onClick={() => { setSelCountry(id); setSelCat(''); }}
+                    className={`min-w-0 flex-1 text-start rounded-lg px-3 py-2 text-sm ${
+                      selCountry === id
+                        ? 'bg-ink text-white'
+                        : isHidden
+                          ? 'text-ink-soft hover:bg-hover'
+                          : 'hover:bg-hover'
+                    }`}
                   >
-                    <ArrowUp className="w-3.5 h-3.5" />
+                    <span className="flex items-center gap-1.5">
+                      {isHidden && <EyeOff className="w-3 h-3 shrink-0 opacity-60" />}
+                      <span className="truncate">{networkJson[id].label}</span>
+                    </span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => moveCountry(id, 1)}
-                    disabled={index === countryIds.length - 1}
-                    title={t('moveDown')}
-                    aria-label={t('moveDown')}
-                    className="p-1 rounded text-ink-soft hover:text-ink hover:bg-hover disabled:opacity-30 disabled:pointer-events-none"
-                  >
-                    <ArrowDown className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </li>
-            ))}
+                  <div className="flex shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => toggleCountryVisibility(id)}
+                      title={isHidden ? 'Show on map' : 'Hide from map'}
+                      aria-label={isHidden ? 'Show country' : 'Hide country'}
+                      className="p-1 rounded text-ink-soft hover:text-ink hover:bg-hover"
+                    >
+                      {isHidden
+                        ? <Eye className="w-3.5 h-3.5" />
+                        : <EyeOff className="w-3.5 h-3.5" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveCountry(id, -1)}
+                      disabled={index === 0}
+                      title={t('moveUp')}
+                      aria-label={t('moveUp')}
+                      className="p-1 rounded text-ink-soft hover:text-ink hover:bg-hover disabled:opacity-30 disabled:pointer-events-none"
+                    >
+                      <ArrowUp className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveCountry(id, 1)}
+                      disabled={index === countryIds.length - 1}
+                      title={t('moveDown')}
+                      aria-label={t('moveDown')}
+                      className="p-1 rounded text-ink-soft hover:text-ink hover:bg-hover disabled:opacity-30 disabled:pointer-events-none"
+                    >
+                      <ArrowDown className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </aside>
 
@@ -782,8 +811,33 @@ export default function AdminPanel() {
             <section className="rounded-xl border border-border bg-white p-4 space-y-3">
               <div className="flex justify-between items-center">
                 <h2 className="font-medium">{t('countrySection')}</h2>
-                <button type="button" onClick={removeCountry} className="text-red-600 p-1 rounded hover:bg-red-50">
-                  <Trash2 className="w-4 h-4" />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => updateCountry({ hidden: !country.hidden })}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium ${
+                      country.hidden
+                        ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
+                        : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                    }`}
+                  >
+                    {country.hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    {country.hidden ? t('hiddenOnSite') : t('visibleOnSite')}
+                  </button>
+                  <button type="button" onClick={removeCountry} className="text-red-600 p-1 rounded hover:bg-red-50">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="sm:col-span-2 rounded-lg border border-border bg-hover px-3 py-2 text-xs text-ink-soft flex flex-wrap items-center justify-between gap-2">
+                <span>Hidden countries are saved but do not appear on the public map.</span>
+                <button
+                  type="button"
+                  onClick={() => updateCountry({ hidden: !country.hidden })}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-white border border-border px-3 py-1 text-xs text-ink hover:bg-hover"
+                >
+                  {country.hidden ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                  {country.hidden ? 'Show on map' : 'Hide from map'}
                 </button>
               </div>
               <div className="grid sm:grid-cols-2 gap-3">

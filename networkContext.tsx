@@ -66,6 +66,7 @@ export function validateNetwork(data: unknown): data is ExportNetworkJson {
     if (!isRecord(c)) return false;
     if (typeof c.id !== 'string' || typeof c.label !== 'string' || typeof c.flag !== 'string') return false;
     if (!isRecord(c.anchor) || typeof c.anchor.x !== 'number' || typeof c.anchor.y !== 'number') return false;
+    if ('hidden' in c && typeof c.hidden !== 'boolean') return false;
     if (!isRecord(c.categories)) return false;
     for (const [, cat] of Object.entries(c.categories)) {
       if (!isRecord(cat)) return false;
