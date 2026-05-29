@@ -14,6 +14,7 @@ import {
   Save,
   Trash2,
   Upload,
+  FileText,
 } from 'lucide-react';
 import type { CategoryJson, CompanyJson, CountryJson } from './networkTypes.ts';
 import { ICON_KEYS } from './iconRegistry.ts';
@@ -25,6 +26,7 @@ import {
   validateNetwork,
 } from './networkContext.tsx';
 import { useLocale } from './i18n/LocaleContext.tsx';
+import { usePageContent, DEFAULT_PAGE_CONTENT, type PageContent } from './pageContentContext.tsx';
 
 const MAX_FAVICON_BYTES = 256 * 1024;
 
@@ -100,13 +102,22 @@ function emptyCountry(id: string, defaultCategoryLabel: string): CountryJson {
   };
 }
 
+type AdminTab = 'network' | 'pages';
+
 export default function AdminPanel() {
   const { t } = useLocale();
   const { adminOk, login, logout, networkJson, setNetworkJson, syncMode, rootNodeLines, setRootNodeLines, flushNetworkToCloudSoon } =
     useExportData();
+  const { pageContent, updatePageContent } = usePageContent();
   const [user, setUser] = useState('');
   const [pass, setPass] = useState('');
   const [err, setErr] = useState('');
+  const [activeTab, setActiveTab] = useState<AdminTab>('network');
+
+  // Page content draft state
+  const [pageDraft, setPageDraft] = useState<PageContent>(() => ({ ...pageContent }));
+  useEffect(() => { setPageDraft({ ...pageContent }); }, [pageContent]);
+  const savePageContent = () => updatePageContent(pageDraft);
 
   // Local draft — completely isolated from context/Firestore until user clicks Save
   const [draftLine1, setDraftLine1] = useState(rootNodeLines.line1);
@@ -440,7 +451,7 @@ export default function AdminPanel() {
     <div className="min-h-screen bg-bg text-ink">
       <header className="sticky top-0 z-10 border-b border-border bg-white/90 backdrop-blur px-4 py-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-3 min-w-0">
-          <h1 className="font-serif text-lg truncate">{t('adminHeader')}</h1>
+          <h1 className="font-serif text-lg truncate">Tohid Dayhami Business Solutions Center — Admin</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <label className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium cursor-pointer hover:bg-hover">
@@ -482,6 +493,170 @@ export default function AdminPanel() {
         </div>
       </header>
 
+      {/* Tab navigation */}
+      <div className="border-b border-border bg-white px-4 flex gap-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab('network')}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'network'
+              ? 'border-ink text-ink'
+              : 'border-transparent text-ink-soft hover:text-ink'
+          }`}
+        >
+          Network Data
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('pages')}
+          className={`inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'pages'
+              ? 'border-ink text-ink'
+              : 'border-transparent text-ink-soft hover:text-ink'
+          }`}
+        >
+          <FileText className="w-3.5 h-3.5" />
+          Pages Content
+        </button>
+      </div>
+
+      {/* Pages Content Tab */}
+      {activeTab === 'pages' && (
+        <div className="max-w-4xl mx-auto p-4 space-y-6">
+
+          {/* About Us */}
+          <section className="rounded-xl border border-border bg-white p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-medium text-base">About Us Page</h2>
+              <button
+                type="button"
+                onClick={savePageContent}
+                className="inline-flex items-center gap-1.5 rounded-full bg-ink text-white px-4 py-1.5 text-xs font-medium hover:opacity-90"
+              >
+                <Save className="w-3 h-3" />
+                Save All Pages
+              </button>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {([
+                ['aboutTitle', 'Title'],
+                ['aboutSubtitle', 'Subtitle'],
+                ['aboutStat1Value', 'Stat 1 Value'],
+                ['aboutStat1Label', 'Stat 1 Label'],
+                ['aboutStat2Value', 'Stat 2 Value'],
+                ['aboutStat2Label', 'Stat 2 Label'],
+                ['aboutStat3Value', 'Stat 3 Value'],
+                ['aboutStat3Label', 'Stat 3 Label'],
+              ] as [keyof PageContent, string][]).map(([key, label]) => (
+                <label key={key} className="block text-xs">
+                  <span className="text-ink-soft">{label}</span>
+                  <input
+                    className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
+                    value={pageDraft[key] as string}
+                    onChange={(e) => setPageDraft((d) => ({ ...d, [key]: e.target.value }))}
+                  />
+                </label>
+              ))}
+            </div>
+            <div className="space-y-3">
+              {([
+                ['aboutBody1', 'Body Paragraph 1'],
+                ['aboutBody2', 'Body Paragraph 2'],
+              ] as [keyof PageContent, string][]).map(([key, label]) => (
+                <label key={key} className="block text-xs">
+                  <span className="text-ink-soft">{label}</span>
+                  <textarea
+                    rows={3}
+                    className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm resize-y"
+                    value={pageDraft[key] as string}
+                    onChange={(e) => setPageDraft((d) => ({ ...d, [key]: e.target.value }))}
+                  />
+                </label>
+              ))}
+            </div>
+          </section>
+
+          {/* Services */}
+          <section className="rounded-xl border border-border bg-white p-5 space-y-4">
+            <h2 className="font-medium text-base">Services Page</h2>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {([
+                ['servicesTitle', 'Title'],
+                ['servicesSubtitle', 'Subtitle'],
+              ] as [keyof PageContent, string][]).map(([key, label]) => (
+                <label key={key} className="block text-xs">
+                  <span className="text-ink-soft">{label}</span>
+                  <input
+                    className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
+                    value={pageDraft[key] as string}
+                    onChange={(e) => setPageDraft((d) => ({ ...d, [key]: e.target.value }))}
+                  />
+                </label>
+              ))}
+            </div>
+            {([1, 2, 3, 4] as const).map((n) => (
+              <div key={n} className="rounded-lg border border-border p-3 space-y-2">
+                <p className="text-xs font-medium text-ink-soft">Service {n}</p>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <label className="block text-xs">
+                    <span className="text-ink-soft">Title</span>
+                    <input
+                      className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
+                      value={pageDraft[`service${n}Title` as keyof PageContent] as string}
+                      onChange={(e) => setPageDraft((d) => ({ ...d, [`service${n}Title`]: e.target.value }))}
+                    />
+                  </label>
+                  <label className="block text-xs">
+                    <span className="text-ink-soft">Description</span>
+                    <input
+                      className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
+                      value={pageDraft[`service${n}Desc` as keyof PageContent] as string}
+                      onChange={(e) => setPageDraft((d) => ({ ...d, [`service${n}Desc`]: e.target.value }))}
+                    />
+                  </label>
+                </div>
+              </div>
+            ))}
+          </section>
+
+          {/* Contact */}
+          <section className="rounded-xl border border-border bg-white p-5 space-y-4">
+            <h2 className="font-medium text-base">Contact Us Page</h2>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {([
+                ['contactTitle', 'Title'],
+                ['contactSubtitle', 'Subtitle'],
+                ['contactEmail', 'Email'],
+                ['contactPhone', 'Phone'],
+                ['contactAddress', 'Address'],
+                ['contactHours', 'Business Hours'],
+                ['siteTagline', 'Site Tagline'],
+              ] as [keyof PageContent, string][]).map(([key, label]) => (
+                <label key={key} className="block text-xs">
+                  <span className="text-ink-soft">{label}</span>
+                  <input
+                    className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
+                    value={pageDraft[key] as string}
+                    onChange={(e) => setPageDraft((d) => ({ ...d, [key]: e.target.value }))}
+                  />
+                </label>
+              ))}
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={savePageContent}
+                className="inline-flex items-center gap-1.5 rounded-full bg-ink text-white px-5 py-2 text-sm font-medium hover:opacity-90"
+              >
+                <Save className="w-3.5 h-3.5" />
+                Save All Pages
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {activeTab === 'network' && (
       <div className="max-w-6xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6">
         <aside className="space-y-3">
           <div className="flex items-center justify-between">
@@ -867,6 +1042,7 @@ export default function AdminPanel() {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

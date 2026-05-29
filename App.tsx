@@ -5,11 +5,18 @@
 
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   Search, ArrowRight, ArrowLeft, Globe, Settings2, Pencil, X, ExternalLink,
   type LucideIcon,
 } from 'lucide-react';
+
+const NAV_ITEMS = [
+  { label: 'Home', to: '/' },
+  { label: 'About Us', to: '/about' },
+  { label: 'Services', to: '/services' },
+  { label: 'Contact Us', to: '/contact' },
+];
 import type { Category } from './hydrateNetwork.ts';
 import { DEFAULT_ROOT_NODE_LINES, useExportData } from './networkContext.tsx';
 import { useLocale } from './i18n/LocaleContext.tsx';
@@ -129,6 +136,7 @@ const slideUp = (delay = 0) => ({
 
 export default function App() {
   const { t } = useLocale();
+  const { pathname } = useLocation();
   const { exportData, syncMode, remoteReady, rootNodeLines, setRootNodeLines, adminOk } = useExportData();
 
   const [level, setLevel] = useState<AppLevel>(0);
@@ -276,14 +284,15 @@ export default function App() {
         {/* Left: Logo or Back */}
         <div className="flex items-center gap-3 shrink-0">
           {level === 0 ? (
-            <div className="flex items-center gap-2.5 port-header-fade">
+            <Link to="/" className="flex items-center gap-2.5 port-header-fade">
               <div className="w-8 h-8 rounded-full border border-port-accent/40 bg-port-accent-bg flex items-center justify-center shrink-0">
                 <span className="font-serif text-port-accent text-base leading-none">T</span>
               </div>
-              <span className="font-semibold text-[14px] tracking-tight hidden sm:block">
-                Tohid Meta Port
-              </span>
-            </div>
+              <div className="hidden sm:flex flex-col leading-none gap-0.5">
+                <span className="font-semibold text-[13px] tracking-tight text-port-ink leading-none">Tohid Dayhami</span>
+                <span className="text-[10px] text-port-soft tracking-wide leading-none hidden md:block">Business Solutions Center</span>
+              </div>
+            </Link>
           ) : (
             <button
               type="button"
@@ -296,22 +305,45 @@ export default function App() {
           )}
         </div>
 
-        {/* Center: Breadcrumb */}
+        {/* Center: Nav links (level 0) or Breadcrumb (level 1+) */}
         <div className="hidden sm:flex items-center gap-1.5 text-[12px] text-port-soft min-w-0 flex-1 justify-center">
-          <span className="text-port-ink font-medium shrink-0">Meta Port</span>
-          {level >= 1 && <span className="text-port-faint shrink-0">/</span>}
-          {level >= 1 && (
-            <span className="truncate shrink-0">
-              {level === 1 ? 'Terminals' : exportData[selectedCountry!]?.label}
-            </span>
-          )}
-          {level >= 2 && <span className="text-port-faint shrink-0">/</span>}
-          {level >= 2 && (
-            <span className="truncate">
-              {level === 2
-                ? 'Booths'
-                : exportData[selectedCountry!]?.categories[selectedCategory!]?.label}
-            </span>
+          {level === 0 ? (
+            <nav className="flex items-center gap-0.5">
+              {NAV_ITEMS.map((item) => {
+                const active = item.to === '/' ? pathname === '/' : pathname.startsWith(item.to);
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className={`px-3 py-1.5 rounded-full text-[13px] font-medium transition-all ${
+                      active
+                        ? 'bg-port-accent-bg text-port-accent border border-port-accent/25'
+                        : 'text-port-soft hover:text-port-ink hover:bg-port-surface'
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </nav>
+          ) : (
+            <>
+              <span className="text-port-ink font-medium shrink-0">Tohid Meta Port</span>
+              {level >= 1 && <span className="text-port-faint shrink-0">/</span>}
+              {level >= 1 && (
+                <span className="truncate shrink-0">
+                  {level === 1 ? 'Terminals' : exportData[selectedCountry!]?.label}
+                </span>
+              )}
+              {level >= 2 && <span className="text-port-faint shrink-0">/</span>}
+              {level >= 2 && (
+                <span className="truncate">
+                  {level === 2
+                    ? 'Booths'
+                    : exportData[selectedCountry!]?.categories[selectedCategory!]?.label}
+                </span>
+              )}
+            </>
           )}
         </div>
 
