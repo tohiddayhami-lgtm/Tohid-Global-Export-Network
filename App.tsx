@@ -292,9 +292,9 @@ export default function App() {
               <div className="w-8 h-8 rounded-full border border-port-accent/40 bg-port-accent-bg flex items-center justify-center shrink-0">
                 <span className="font-serif text-port-accent text-base leading-none">T</span>
               </div>
-              <div className="hidden sm:flex flex-col leading-none gap-0.5">
+              <div className="flex flex-col leading-none gap-0.5">
                 <span className="font-semibold text-[13px] tracking-tight text-port-ink leading-none">Tohid Dayhami</span>
-                <span className="text-[10px] text-port-soft tracking-wide leading-none hidden md:block">Business Solutions Center</span>
+                <span className="text-[10px] text-port-soft tracking-wide leading-none">Business Solutions Center</span>
               </div>
             </Link>
           ) : (
