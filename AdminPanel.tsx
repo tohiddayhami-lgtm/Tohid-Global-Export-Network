@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ChangeEventHandler, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEventHandler, type FormEvent, type InputHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowDown,
@@ -113,6 +113,39 @@ function emptyCountry(id: string, defaultCategoryLabel: string): CountryJson {
     anchor: { x: 0, y: -160 },
     categories: { new_cat: emptyCategory(defaultCategoryLabel) },
   };
+}
+
+// ── Stable draft inputs ────────────────────────────────────────────────────
+// These keep their own local state so rapid typing is never interrupted by
+// Firestore round-trips. The global state is updated only on blur.
+function DraftInput({ value, onCommit, ...rest }: { value: string; onCommit: (v: string) => void } & Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'onBlur' | 'onFocus'>) {
+  const [local, setLocal] = useState(value);
+  const focused = useRef(false);
+  useEffect(() => { if (!focused.current) setLocal(value); }, [value]);
+  return (
+    <input
+      {...rest}
+      value={local}
+      onChange={(e) => setLocal(e.target.value)}
+      onFocus={() => { focused.current = true; }}
+      onBlur={() => { focused.current = false; onCommit(local); }}
+    />
+  );
+}
+
+function DraftTextarea({ value, onCommit, ...rest }: { value: string; onCommit: (v: string) => void } & Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'value' | 'onChange' | 'onBlur' | 'onFocus'>) {
+  const [local, setLocal] = useState(value);
+  const focused = useRef(false);
+  useEffect(() => { if (!focused.current) setLocal(value); }, [value]);
+  return (
+    <textarea
+      {...rest}
+      value={local}
+      onChange={(e) => setLocal(e.target.value)}
+      onFocus={() => { focused.current = true; }}
+      onBlur={() => { focused.current = false; onCommit(local); }}
+    />
+  );
 }
 
 type AdminTab = 'network' | 'pages' | 'seo' | 'news' | 'messages';
@@ -1693,21 +1726,21 @@ export default function AdminPanel() {
                   </div>
                   <label className="text-xs sm:col-span-2">
                     <span className="text-ink-soft">{t('label')}</span>
-                    <input
+                    <DraftInput
                       className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm"
                       value={activeCat.label}
-                      onChange={(e) => updateCategory(selCat, { label: e.target.value })}
+                      onCommit={(v) => updateCategory(selCat, { label: v })}
                     />
                   </label>
                   <label className="text-xs sm:col-span-2">
                     <span className="text-ink-soft">Description</span>
                     <span className="ml-1.5 text-[10px] text-ink-faint">(shown on cards & search results)</span>
-                    <textarea
+                    <DraftTextarea
                       className="mt-1 w-full rounded border border-border px-2 py-1.5 text-sm resize-none"
                       rows={2}
                       placeholder="Short description of what this trade booth covers…"
                       value={activeCat.description ?? ''}
-                      onChange={(e) => updateCategory(selCat, { description: e.target.value || undefined })}
+                      onCommit={(v) => updateCategory(selCat, { description: v || undefined })}
                     />
                   </label>
                   <label className="text-xs sm:col-span-2">
@@ -1763,32 +1796,32 @@ export default function AdminPanel() {
                             <>
                               <tr key={i} className="border-t border-border">
                                 <td className="p-1">
-                                  <input
+                                  <DraftInput
                                     className="w-full rounded border border-transparent hover:border-border px-1 py-1"
                                     value={row.name}
-                                    onChange={(e) => updateCompany(selCat, i, { name: e.target.value })}
+                                    onCommit={(v) => updateCompany(selCat, i, { name: v })}
                                   />
                                 </td>
                                 <td className="p-1">
-                                  <input
+                                  <DraftInput
                                     className="w-full rounded border border-transparent hover:border-border px-1 py-1"
                                     value={row.tag}
-                                    onChange={(e) => updateCompany(selCat, i, { tag: e.target.value })}
+                                    onCommit={(v) => updateCompany(selCat, i, { tag: v })}
                                   />
                                 </td>
                                 <td className="p-1">
-                                  <input
+                                  <DraftInput
                                     className="w-full rounded border border-transparent hover:border-border px-1 py-1 text-center"
                                     maxLength={3}
                                     value={row.initial}
-                                    onChange={(e) => updateCompany(selCat, i, { initial: e.target.value })}
+                                    onCommit={(v) => updateCompany(selCat, i, { initial: v })}
                                   />
                                 </td>
                                 <td className="p-1">
-                                  <input
+                                  <DraftInput
                                     className="w-full rounded border border-transparent hover:border-border px-1 py-1"
                                     value={row.url}
-                                    onChange={(e) => updateCompany(selCat, i, { url: e.target.value })}
+                                    onCommit={(v) => updateCompany(selCat, i, { url: v })}
                                     placeholder="https://..."
                                   />
                                 </td>
@@ -1835,11 +1868,11 @@ export default function AdminPanel() {
                               </tr>
                               <tr key={`desc-${i}`} className="bg-hover/40">
                                 <td colSpan={7} className="px-2 pb-1.5 pt-0.5">
-                                  <input
+                                  <DraftInput
                                     className="w-full rounded border border-transparent hover:border-border focus:border-border px-2 py-1 text-xs text-ink-soft placeholder:text-ink-faint bg-transparent focus:bg-white transition-colors outline-none"
                                     placeholder="Description (optional)…"
                                     value={row.description ?? ''}
-                                    onChange={(e) => updateCompany(selCat, i, { description: e.target.value || undefined })}
+                                    onCommit={(v) => updateCompany(selCat, i, { description: v || undefined })}
                                   />
                                 </td>
                               </tr>
