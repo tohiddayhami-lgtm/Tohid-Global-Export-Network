@@ -148,6 +148,8 @@ export default function App() {
   const [titleModalOpen, setTitleModalOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [titleDraft, setTitleDraft] = useState({ line1: '', line2: '', badge: '', subtitle: '', stat1: '', stat2: '', stat3: '' });
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const titleModalOpenRef = useRef(false);
   titleModalOpenRef.current = titleModalOpen;
 
@@ -161,13 +163,19 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      if (titleModalOpenRef.current) { setTitleModalOpen(false); return; }
-      goBack();
+      if (e.key === 'Escape') {
+        if (titleModalOpenRef.current) { setTitleModalOpen(false); return; }
+        if (searchOpen) { setSearchOpen(false); setSearchQuery(''); return; }
+        goBack();
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [goBack]);
+  }, [goBack, searchOpen]);
 
   useEffect(() => { window.scrollTo(0, 0); }, [level]);
 
@@ -204,6 +212,53 @@ export default function App() {
       if (level === 3) setLevel(2);
     }
   }, [exportData, level, selectedCountry, selectedCategory, selectedCountryData]);
+
+  // ── Search ───────────────────────────────────────────────────────────────────
+  type SearchResult =
+    | { kind: 'country'; countryId: string; label: string; flag: string }
+    | { kind: 'category'; countryId: string; catId: string; countryLabel: string; catLabel: string }
+    | { kind: 'company'; name: string; tag: string; url: string; countryId: string; catId: string; countryLabel: string; catLabel: string };
+
+  const searchResults = useMemo<SearchResult[]>(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    const results: SearchResult[] = [];
+    for (const [cid, country] of Object.entries(exportData) as [string, Country][]) {
+      if (country.hidden) continue;
+      if (country.label.toLowerCase().includes(q)) {
+        results.push({ kind: 'country', countryId: cid, label: country.label, flag: country.flag });
+      }
+      for (const [catId, cat] of Object.entries(country.categories) as [string, Category][]) {
+        if (cat.hidden) continue;
+        if (cat.label.toLowerCase().includes(q)) {
+          results.push({ kind: 'category', countryId: cid, catId, countryLabel: country.label, catLabel: cat.label });
+        }
+        for (const co of cat.companies) {
+          if (co.name.toLowerCase().includes(q) || co.tag.toLowerCase().includes(q)) {
+            results.push({ kind: 'company', name: co.name, tag: co.tag, url: co.url, countryId: cid, catId, countryLabel: country.label, catLabel: cat.label });
+          }
+        }
+      }
+    }
+    return results.slice(0, 12);
+  }, [searchQuery, exportData]);
+
+  const handleSearchResult = (r: SearchResult) => {
+    setSearchOpen(false);
+    setSearchQuery('');
+    if (r.kind === 'country') {
+      setSelectedCountry(r.countryId);
+      setSelectedCategory(null);
+      setLevel(2);
+    } else if (r.kind === 'category') {
+      setSelectedCountry(r.countryId);
+      setSelectedCategory(r.catId);
+      setLevel(3);
+    } else {
+      const url = r.url.startsWith('http') ? r.url : `https://${r.url}`;
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
 
   const rootLine1 = useMemo(
     () => rootNodeLines.line1.trim() || DEFAULT_ROOT_NODE_LINES.line1,
@@ -363,6 +418,7 @@ export default function App() {
           </Link>
           <button
             type="button"
+            onClick={() => setSearchOpen(true)}
             className="w-9 h-9 rounded-full hidden sm:flex items-center justify-center hover:bg-port-surface border border-transparent hover:border-port-border transition-all text-port-soft hover:text-port-ink"
             aria-label={t('ariaSearch')}
           >
@@ -494,15 +550,16 @@ export default function App() {
                 </motion.div>
               </div>
 
-              {/* Scroll indicator */}
+              {/* Footer copyright */}
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 2 }}
-                className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-port-faint pointer-events-none"
+                className="absolute bottom-6 left-1/2 -translate-x-1/2 pointer-events-none whitespace-nowrap"
               >
-                <div className="w-px h-10 bg-gradient-to-b from-transparent to-port-faint/40" />
-                <span className="text-[9px] tracking-[0.2em] uppercase">Scroll</span>
+                <span className="text-[10px] text-port-faint/60 tracking-wide">
+                  © {new Date().getFullYear()} Tohid Dayhami Business Solutions Center · All rights reserved
+                </span>
               </motion.div>
             </motion.div>
           )}
@@ -807,6 +864,114 @@ export default function App() {
                   {t('mapCenterTitleSave')}
                 </button>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Search Modal */}
+      <AnimatePresence>
+        {searchOpen && (
+          <motion.div
+            key="search-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-[300] flex flex-col items-center pt-[10vh] px-4 bg-black/60 backdrop-blur-sm"
+            onPointerDown={(e) => { if (e.target === e.currentTarget) { setSearchOpen(false); setSearchQuery(''); } }}
+          >
+            <motion.div
+              initial={{ scale: 0.96, opacity: 0, y: -8 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.96, opacity: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+              className="w-full max-w-lg rounded-2xl border border-port-border bg-port-surface shadow-2xl overflow-hidden"
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              {/* Search input */}
+              <div className="flex items-center gap-3 px-4 py-3 border-b border-port-border">
+                <Search className="w-4 h-4 text-port-soft shrink-0" strokeWidth={1.5} />
+                <input
+                  autoFocus
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search countries, categories, companies..."
+                  className="flex-1 bg-transparent text-port-ink text-sm placeholder:text-port-faint focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => { setSearchOpen(false); setSearchQuery(''); }}
+                  className="text-port-faint hover:text-port-soft transition-colors"
+                >
+                  <X className="w-4 h-4" strokeWidth={1.5} />
+                </button>
+              </div>
+
+              {/* Results */}
+              {searchQuery.trim() && (
+                <div className="max-h-[60vh] overflow-y-auto">
+                  {searchResults.length === 0 ? (
+                    <p className="text-center text-port-faint text-sm py-8">No results found for "{searchQuery}"</p>
+                  ) : (
+                    <ul className="py-2">
+                      {searchResults.map((r, i) => (
+                        <li key={i}>
+                          <button
+                            type="button"
+                            onClick={() => handleSearchResult(r)}
+                            className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-port-accent-bg transition-colors group"
+                          >
+                            {r.kind === 'country' && (
+                              <>
+                                <div className="w-8 h-8 rounded-lg bg-port-accent/10 border border-port-accent/20 flex items-center justify-center shrink-0">
+                                  <Globe className="w-3.5 h-3.5 text-port-accent" strokeWidth={1.5} />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium text-port-ink truncate">{r.label}</p>
+                                  <p className="text-[11px] text-port-faint">Terminal</p>
+                                </div>
+                              </>
+                            )}
+                            {r.kind === 'category' && (
+                              <>
+                                <div className="w-8 h-8 rounded-lg bg-port-gold/10 border border-port-gold/20 flex items-center justify-center shrink-0">
+                                  <ArrowRight className="w-3.5 h-3.5 text-port-gold" strokeWidth={1.5} />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium text-port-ink truncate">{r.catLabel}</p>
+                                  <p className="text-[11px] text-port-faint truncate">{r.countryLabel} · Trade Booth</p>
+                                </div>
+                              </>
+                            )}
+                            {r.kind === 'company' && (
+                              <>
+                                <div className="w-8 h-8 rounded-lg bg-port-surface border border-port-border flex items-center justify-center shrink-0">
+                                  <ExternalLink className="w-3.5 h-3.5 text-port-soft" strokeWidth={1.5} />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-medium text-port-ink truncate">{r.name}</p>
+                                  <p className="text-[11px] text-port-faint truncate">{r.countryLabel} · {r.catLabel}</p>
+                                </div>
+                                {r.tag && (
+                                  <span className="text-[10px] text-port-soft border border-port-border rounded px-1.5 py-0.5 shrink-0">{r.tag}</span>
+                                )}
+                              </>
+                            )}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+
+              {!searchQuery.trim() && (
+                <p className="text-center text-port-faint text-xs py-6">
+                  Type to search · <kbd className="px-1 py-0.5 rounded border border-port-border text-[10px]">Esc</kbd> to close
+                </p>
+              )}
             </motion.div>
           </motion.div>
         )}
