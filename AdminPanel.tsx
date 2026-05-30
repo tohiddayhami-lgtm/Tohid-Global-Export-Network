@@ -799,7 +799,7 @@ export default function AdminPanel() {
                 </label>
               ))}
             </div>
-            {([1, 2, 3, 4] as const).map((n) => (
+            {([1, 2, 3, 4, 5, 6] as const).map((n) => (
               <div key={n} className="rounded-lg border border-border p-3 space-y-2">
                 <p className="text-xs font-medium text-ink-soft">Service {n}</p>
                 <div className="grid sm:grid-cols-2 gap-3">

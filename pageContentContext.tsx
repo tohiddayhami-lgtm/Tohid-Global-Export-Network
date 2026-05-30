@@ -71,6 +71,10 @@ export interface PageContent extends SeoContent {
   service3Desc: string;
   service4Title: string;
   service4Desc: string;
+  service5Title: string;
+  service5Desc: string;
+  service6Title: string;
+  service6Desc: string;
   // Contact
   contactTitle: string;
   contactSubtitle: string;
@@ -109,6 +113,12 @@ export const DEFAULT_PAGE_CONTENT: PageContent = {
   service4Title: 'Business Matchmaking',
   service4Desc:
     'Personalized B2B matchmaking services to connect you with the right partners for your specific business goals and target markets.',
+  service5Title: 'Packaging Design Solutions',
+  service5Desc:
+    'Creative and functional packaging design tailored to your product and target market — from concept and branding to print-ready artwork and material selection.',
+  service6Title: 'Packaging Production',
+  service6Desc:
+    'End-to-end packaging production management including supplier sourcing, quality control, and delivery of finished packaging materials at competitive global prices.',
   contactTitle: 'Contact Us',
   contactSubtitle: 'Get in touch with our team of global trade experts',
   contactEmail: 'info@tohid-business.com',

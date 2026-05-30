@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { FileText, Network, Truck, Handshake, ArrowRight } from 'lucide-react';
+import { FileText, Network, Truck, Handshake, Palette, Package, ArrowRight } from 'lucide-react';
 import { usePageContent } from './pageContentContext.tsx';
 import PageHeader from './PageHeader.tsx';
 import SeoHead from './SeoHead.tsx';
@@ -32,6 +32,18 @@ export default function ServicesPage() {
       title: pageContent.service4Title,
       desc: pageContent.service4Desc,
       badge: 'Matchmaking',
+    },
+    {
+      icon: Palette,
+      title: pageContent.service5Title,
+      desc: pageContent.service5Desc,
+      badge: 'Design',
+    },
+    {
+      icon: Package,
+      title: pageContent.service6Title,
+      desc: pageContent.service6Desc,
+      badge: 'Production',
     },
   ];
 
