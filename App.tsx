@@ -7,17 +7,9 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  Search, ArrowRight, ArrowLeft, Globe, Settings2, Pencil, X, ExternalLink, Menu,
+  Search, ArrowRight, ArrowLeft, Globe, Settings2, Pencil, X, ExternalLink,
   type LucideIcon,
 } from 'lucide-react';
-
-const NAV_ITEMS = [
-  { label: 'Home', to: '/' },
-  { label: 'About Us', to: '/about' },
-  { label: 'Services', to: '/services' },
-  { label: 'News', to: '/news' },
-  { label: 'Contact Us', to: '/contact' },
-];
 import type { Category, Country } from './hydrateNetwork.ts';
 import { DEFAULT_ROOT_NODE_LINES, useExportData } from './networkContext.tsx';
 import { useLocale } from './i18n/LocaleContext.tsx';
@@ -146,7 +138,6 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const [titleModalOpen, setTitleModalOpen] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [titleDraft, setTitleDraft] = useState({ line1: '', line2: '', badge: '', subtitle: '', stat1: '', stat2: '', stat3: '' });
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -365,28 +356,9 @@ export default function App() {
           )}
         </div>
 
-        {/* Center: absolutely centered so it's always truly centered */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          {level === 0 ? (
-            <nav className="pointer-events-auto hidden sm:flex items-center gap-0.5">
-              {NAV_ITEMS.map((item) => {
-                const active = item.to === '/' ? pathname === '/' : pathname.startsWith(item.to);
-                return (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    className={`px-3 py-1.5 rounded-full text-[13px] font-medium transition-all ${
-                      active
-                        ? 'bg-port-accent-bg text-port-accent border border-port-accent/25'
-                        : 'text-port-soft hover:text-port-ink hover:bg-port-surface'
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </nav>
-          ) : (
+        {/* Center: breadcrumb when inside the port */}
+        {level > 0 && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="pointer-events-auto hidden sm:flex items-center gap-1.5 text-[12px] text-port-soft">
               <span className="text-port-ink font-medium shrink-0">Tohid Meta Port</span>
               {level >= 1 && <span className="text-port-faint shrink-0">/</span>}
@@ -404,8 +376,8 @@ export default function App() {
                 </span>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Right: Actions */}
         <div className="flex items-center gap-1 shrink-0 z-10 ml-auto">
@@ -424,46 +396,9 @@ export default function App() {
           >
             <Search className="w-4 h-4" strokeWidth={1.5} />
           </button>
-          {/* Mobile menu button — only on level 0 */}
-          {level === 0 && (
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen((v) => !v)}
-              className="sm:hidden w-9 h-9 rounded-full flex items-center justify-center hover:bg-port-surface border border-transparent hover:border-port-border transition-all text-port-soft hover:text-port-ink"
-              aria-label={t('ariaMenu')}
-            >
-              {mobileMenuOpen
-                ? <X className="w-4 h-4" strokeWidth={1.5} />
-                : <Menu className="w-4 h-4" strokeWidth={1.5} />}
-            </button>
-          )}
         </div>
       </header>
 
-      {/* Mobile dropdown nav */}
-      {mobileMenuOpen && level === 0 && (
-        <div className="sm:hidden fixed top-16 inset-x-0 z-40 port-glass-nav border-b border-port-border shadow-lg">
-          <nav className="flex flex-col px-4 py-3 gap-1">
-            {NAV_ITEMS.map((item) => {
-              const active = item.to === '/' ? pathname === '/' : pathname.startsWith(item.to);
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center px-4 py-3 rounded-xl text-[14px] font-medium transition-all ${
-                    active
-                      ? 'text-port-accent bg-port-accent-bg border border-port-accent/20'
-                      : 'text-port-soft hover:text-port-ink hover:bg-port-surface'
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
-      )}
 
       {/* ── Main ───────────────────────────────────────────────────────────── */}
       <main className="flex-1 relative">
